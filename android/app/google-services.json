@@ -1,26 +1,51 @@
 {
   "project_info": {
-    "project_number": "47211536398",
-    "project_id": "spendy-515b7",
-    "storage_bucket": "spendy-515b7.firebasestorage.app"
+    "project_number": "618282391631",
+    "project_id": "spendy-e601d",
+    "storage_bucket": "spendy-e601d.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:47211536398:android:b47940cd19d5d32d8e1c5f",
+        "mobilesdk_app_id": "1:618282391631:android:053e97f0e081708e72f23a",
         "android_client_info": {
           "package_name": "com.example.spendy"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "618282391631-1ahuv1id8m113a4b4gc1gm4t6ug323j2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.spendy",
+            "certificate_hash": "b392f8744cb4a9c6283d616b7a2e70e456239f92"
+          }
+        },
+        {
+          "client_id": "618282391631-vhluq411nfjfec343j6he3o47devs0jq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyA5ozsSyJFW19-s0OVlXn1vS0uEbWAoU6Q"
+          "current_key": "AIzaSyC5JLcMEnQlp7woOVn2ZcSnVwcW71Sf830"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "618282391631-vhluq411nfjfec343j6he3o47devs0jq.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "618282391631-0mhg22293a18k489t7roqj2qe4gdclct.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.spendy"
+              }
+            }
+          ]
         }
       }
     }

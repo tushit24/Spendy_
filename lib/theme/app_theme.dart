@@ -29,12 +29,10 @@ class AppTheme {
     colorScheme: ColorScheme.dark(
       primary: blue,
       secondary: yellow,
-      background: background,
       surface: card,
       error: red,
       onPrimary: textPrimary,
       onSecondary: textPrimary,
-      onBackground: textPrimary,
       onSurface: textPrimary,
       onError: textPrimary,
     ),

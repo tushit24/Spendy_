@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Users can read other users (needed for member lists)
+      allow write: if isOwner(userId); // Users can only update their own profile
+    }
+
+    // GROUPS COLLECTION
+    match /groups/{groupId} {
+      // Allow read if user is in the members subcollection (tricky in rules without get())
+      // or if we just allow authenticated read for searching/listing?
+      // Strict rule: Must contain user in members subcollection.
+      
+      // Helper to check membership
+      function isMember() {
+         return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+      }
+      
+      // Create: Allow if authenticated
+      allow create: if isAuthenticated() 
+                      && request.resource.data.createdBy == request.auth.uid;
+
+      // Read: Allow if member OR if searching by code (needed for Join) or if admin
+      // Since 'list' and 'get' are separate, we can be specific.
+      // But for Join Group we need to query by code.
+      allow read: if isAuthenticated(); 
+      
+      // Update: Allow if member (e.g. adding self to members? No, members is subcoll)
+      // Group doc update? Only Admin/Owner should update group name etc.
+      allow update: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+      
+      // Delete: Only Owner
+      allow delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+
+      // MEMBERS SUBCOLLECTION
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        // Allow user to add themselves (Join) or remove themselves (Leave)
+        // Also allow Admin (group creator) to remove members (Kick) - not implemented in UI yet but good for rules
+        allow write: if isAuthenticated() && (request.auth.uid == memberId || 
+                        get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid);
+      }
+
+      // EXPENSES SUBCOLLECTION
+      match /expenses/{expenseId} {
+        // Must be member of group to read/write expenses
+        allow read, write: if isAuthenticated() && 
+                           exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+                           
+        // REACTIONS SUB-SUBCOLLECTION
+        match /reactions/{reactionId} {
+           allow read, write: if isAuthenticated() && 
+                              exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+        }
+      }
+    }
+  }
+}
