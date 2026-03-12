@@ -85,5 +85,11 @@ class AppTheme {
       ),
     ),
     iconTheme: const IconThemeData(color: yellow),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
+      },
+    ),
   );
 }

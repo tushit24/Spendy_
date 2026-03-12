@@ -14,4 +14,3 @@ class StorageService {
     return ref.getDownloadURL();
   }
 }
-

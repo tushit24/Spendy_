@@ -4,7 +4,8 @@ class Group {
   final String id;
   final String name;
   final String code;
-  final String ownerId; // Mapped to 'createdBy' in Firestore
+  final String ownerId;
+  final List<String> members;
   final DateTime createdAt;
 
   Group({
@@ -12,6 +13,7 @@ class Group {
     required this.name,
     required this.code,
     required this.ownerId,
+    this.members = const [],
     required this.createdAt,
   });
 
@@ -20,9 +22,9 @@ class Group {
       id: id,
       name: data['name'] as String? ?? '',
       code: data['code'] as String? ?? '',
-      ownerId: data['createdBy'] as String? ?? '', // Changed from ownerId
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      ownerId: data['ownerId'] as String? ?? '',
+      members: List<String>.from(data['members'] ?? []),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -30,9 +32,9 @@ class Group {
     return {
       'name': name,
       'code': code,
-      'createdBy': ownerId,
+      'ownerId': ownerId,
+      'members': members,
       'createdAt': createdAt,
     };
   }
 }
-

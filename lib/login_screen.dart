@@ -87,17 +87,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Email'),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _password,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Password'),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
@@ -125,4 +121,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

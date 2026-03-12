@@ -1,0 +1,100 @@
+﻿[debug] [2026-02-22T09:32:26.650Z] ----------------------------------------------------------------------
+[debug] [2026-02-22T09:32:26.653Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ajayt\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --debug --only functions
+[debug] [2026-02-22T09:32:26.653Z] CLI Version:   15.5.1
+[debug] [2026-02-22T09:32:26.653Z] Platform:      win32
+[debug] [2026-02-22T09:32:26.654Z] Node Version:  v22.15.0
+[debug] [2026-02-22T09:32:26.654Z] Time:          Sun Feb 22 2026 15:02:26 GMT+0530 (India Standard Time)
+[debug] [2026-02-22T09:32:26.654Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-22T09:32:28.626Z] Object "" in "firebase.json" has unknown property: {"additionalProperty":"flutter"}
+[debug] [2026-02-22T09:32:28.632Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-22T09:32:28.632Z] > authorizing via signed-in user (rishitiwariofficial@gmail.com)
+[debug] [2026-02-22T09:32:28.633Z] [iam] checking project spendy-e601d for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-02-22T09:32:28.634Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:28.634Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:28.635Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d:testIamPermissions [none]
+[debug] [2026-02-22T09:32:28.635Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d:testIamPermissions  x-goog-user-project=spendy-e601d
+[debug] [2026-02-22T09:32:28.636Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-22T09:32:30.150Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d:testIamPermissions 200
+[debug] [2026-02-22T09:32:30.150Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-22T09:32:30.151Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:30.151Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:30.151Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/spendy-e601d/serviceAccounts/spendy-e601d@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-02-22T09:32:30.151Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/spendy-e601d/serviceAccounts/spendy-e601d@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-22T09:32:30.873Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/spendy-e601d/serviceAccounts/spendy-e601d@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-02-22T09:32:30.874Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/spendy-e601d/serviceAccounts/spendy-e601d@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'spendy-e601d'...
+[info] 
+[info] i  deploying functions 
+[info] +  functions: Finished running predeploy script. 
+[debug] [2026-02-22T09:32:30.877Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:30.877Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:30.877Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d [none]
+[debug] [2026-02-22T09:32:31.211Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d 200
+[debug] [2026-02-22T09:32:31.212Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/spendy-e601d {"projectNumber":"618282391631","projectId":"spendy-e601d","lifecycleState":"ACTIVE","name":"spendy","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-07-24T16:59:08.942072Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2026-02-22T09:32:31.214Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:31.214Z] Checked if tokens are valid: true, expires at: 1771756311241
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-02-22T09:32:31.215Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:31.215Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:31.215Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com [none]
+[debug] [2026-02-22T09:32:31.215Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com  x-goog-user-project=spendy-e601d
+[debug] [2026-02-22T09:32:31.217Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com [none]
+[debug] [2026-02-22T09:32:31.217Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com  x-goog-user-project=spendy-e601d
+[debug] [2026-02-22T09:32:33.083Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com 200
+[debug] [2026-02-22T09:32:33.084Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com [omitted]
+[warn] !  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
+[debug] [2026-02-22T09:32:33.084Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:33.084Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:33.085Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com:enable [none]
+[debug] [2026-02-22T09:32:33.085Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com:enable  x-goog-user-project=spendy-e601d
+[debug] [2026-02-22T09:32:33.101Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com 200
+[debug] [2026-02-22T09:32:33.102Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com [omitted]
+[warn] !  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
+[debug] [2026-02-22T09:32:33.102Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:33.102Z] Checked if tokens are valid: true, expires at: 1771756311241
+[debug] [2026-02-22T09:32:33.102Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com:enable [none]
+[debug] [2026-02-22T09:32:33.103Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com:enable  x-goog-user-project=spendy-e601d
+[debug] [2026-02-22T09:32:34.821Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com:enable 400
+[debug] [2026-02-22T09:32:34.822Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com:enable [omitted]
+[debug] [2026-02-22T09:32:34.830Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com:enable 400
+[debug] [2026-02-22T09:32:34.830Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/cloudbuild.googleapis.com:enable [omitted]
+[error] 
+[error] Error: Request to https://serviceusage.googleapis.com/v1/projects/spendy-e601d/services/artifactregistry.googleapis.com:enable had HTTP Error: 400, Billing account for project '618282391631' is not open. Billing must be enabled for activation of service(s) 'artifactregistry.googleapis.com' to proceed.
+Help Token: AerXPhX4VFH2rzOObU72hnFtkHXcgKYj_RraFmtPGq3jno-bV-s25xouDBTyEzWfh2yEqd2zdAroXFO80l99vOESnGFg9X337F6QUXfLQoXY64XH
+[debug] [2026-02-22T09:32:35.036Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "Billing account for project '618282391631' is not open. Billing must be enabled for activation of service(s) 'artifactregistry.googleapis.com' to proceed.\nHelp Token: AerXPhX4VFH2rzOObU72hnFtkHXcgKYj_RraFmtPGq3jno-bV-s25xouDBTyEzWfh2yEqd2zdAroXFO80l99vOESnGFg9X337F6QUXfLQoXY64XH",
+      "status": "FAILED_PRECONDITION",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.PreconditionFailure",
+          "violations": [
+            {
+              "type": "googleapis.com/billing-enabled",
+              "subject": "?error_code=390002&project=618282391631&services=artifactregistry.googleapis.com"
+            }
+          ]
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "UREQ_PROJECT_BILLING_NOT_OPEN",
+          "domain": "serviceusage.googleapis.com/billing-enabled",
+          "metadata": {
+            "project": "618282391631",
+            "services": "artifactregistry.googleapis.com"
+          }
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 400
+  }
+}

@@ -34,10 +34,10 @@ class Expense {
       payerId: data['payerId'] as String? ?? '',
       participants: List<String>.from(data['participants'] ?? const []),
       splitType: data['splitType'] as String? ?? 'Equally',
-      shares: (data['shares'] as Map<String, dynamic>? ?? {})
-          .map((k, v) => MapEntry(k, (v as num).toDouble())),
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      shares: (data['shares'] as Map<String, dynamic>? ?? {}).map(
+        (k, v) => MapEntry(k, (v as num).toDouble()),
+      ),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       status: data['status'] as String? ?? 'owed',
     );
   }
@@ -56,4 +56,3 @@ class Expense {
     };
   }
 }
-

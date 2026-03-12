@@ -1,0 +1,84 @@
+﻿Analyzing Spendy_...                                            
+
+warning - Unused import: 'package:firebase_auth/firebase_auth.dart' - lib\login_screen.dart:1:8 - unused_import
+warning - Unused import: 'auth_gate.dart' - lib\main.dart:7:8 - unused_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\main_nav_screen.dart:3:8 - unnecessary_import
+   info - The local variable '_nameController' starts with an underscore - lib\main_nav_screen.dart:147:11 - no_leading_underscores_for_local_identifiers
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:172:40 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:179:21 - use_build_context_synchronously
+   info - The local variable '_codeController' starts with an underscore - lib\main_nav_screen.dart:192:11 - no_leading_underscores_for_local_identifiers
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:217:40 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:222:40 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:232:21 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:266:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:271:19 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:395:58 - deprecated_member_use
+   info - 'Share' is deprecated and shouldn't be used. Use SharePlus instead - lib\main_nav_screen.dart:444:35 - deprecated_member_use
+   info - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead - lib\main_nav_screen.dart:444:41 - deprecated_member_use
+   info - 'Share' is deprecated and shouldn't be used. Use SharePlus instead - lib\main_nav_screen.dart:460:35 - deprecated_member_use
+   info - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead - lib\main_nav_screen.dart:460:41 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:535:38 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\main_nav_screen.dart:540:19 - use_build_context_synchronously
+warning - The receiver can't be null, so the null-aware operator '?.' is unnecessary - lib\main_nav_screen.dart:592:54 - invalid_null_aware_operator
+   info - Statements in an if should be enclosed in a block - lib\main_nav_screen.dart:1003:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\main_nav_screen.dart:1009:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\main_nav_screen.dart:1013:11 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\main_nav_screen.dart:1015:11 - curly_braces_in_flow_control_structures
+   info - Statements in a for should be enclosed in a block - lib\main_nav_screen.dart:1133:45 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:1218:57 - deprecated_member_use
+   info - Statements in a for should be enclosed in a block - lib\main_nav_screen.dart:1499:42 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:1619:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:1620:28 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\main_nav_screen.dart:1673:41 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:1712:60 - deprecated_member_use
+warning - The operand can't be 'null', so the condition is always 'false' - lib\main_nav_screen.dart:1758:14 - unnecessary_null_comparison
+warning - The '!' will have no effect because the receiver can't be null - lib\main_nav_screen.dart:2070:41 - unnecessary_non_null_assertion
+warning - The '!' will have no effect because the receiver can't be null - lib\main_nav_screen.dart:2086:51 - unnecessary_non_null_assertion
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:2103:62 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:2123:20 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\main_nav_screen.dart:2170:11 - curly_braces_in_flow_control_structures
+warning - The '!' will have no effect because the receiver can't be null - lib\main_nav_screen.dart:2266:28 - unnecessary_non_null_assertion
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\main_nav_screen.dart:2481:42 - use_build_context_synchronously
+warning - The operand can't be 'null', so the condition is always 'false' - lib\main_nav_screen.dart:2497:14 - unnecessary_null_comparison
+   info - 'Share' is deprecated and shouldn't be used. Use SharePlus instead - lib\main_nav_screen.dart:2653:30 - deprecated_member_use
+   info - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead - lib\main_nav_screen.dart:2653:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\main_nav_screen.dart:2693:20 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\onboarding_screen.dart:84:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\onboarding_screen.dart:92:51 - deprecated_member_use
+warning - Unused import: 'package:spendy/main_nav_screen.dart' - lib\screens\splash_screen.dart:2:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\splash_screen.dart:83:41 - deprecated_member_use
+  error - Undefined name 'FirestoreService' - lib\services\expense_summary_service.dart:70:29 - undefined_identifier
+  error - Undefined name 'FirestoreService' - lib\services\expense_summary_service.dart:122:29 - undefined_identifier
+warning - The operand can't be 'null', so the condition is always 'false' - lib\services\firestore_service.dart:155:25 - unnecessary_null_comparison
+warning - The '!' will have no effect because the receiver can't be null - lib\services\firestore_service.dart:155:51 - unnecessary_non_null_assertion
+warning - The operand can't be 'null', so the condition is always 'true' - lib\services\firestore_service.dart:167:25 - unnecessary_null_comparison
+warning - The '!' will have no effect because the receiver can't be null - lib\services\firestore_service.dart:167:51 - unnecessary_non_null_assertion
+warning - The '!' will have no effect because the receiver can't be null - lib\services\firestore_service.dart:198:33 - unnecessary_non_null_assertion
+warning - The operand can't be 'null', so the condition is always 'true' - lib\services\firestore_service.dart:264:27 - unnecessary_null_comparison
+warning - The '!' will have no effect because the receiver can't be null - lib\services\firestore_service.dart:264:53 - unnecessary_non_null_assertion
+   info - Statements in an if should be enclosed in a block - lib\services\firestore_service.dart:275:17 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\services\firestore_service.dart:282:15 - curly_braces_in_flow_control_structures
+warning - The '!' will have no effect because the receiver can't be null - lib\services\firestore_service.dart:303:37 - unnecessary_non_null_assertion
+warning - The '!' will have no effect because the receiver can't be null - lib\services\firestore_service.dart:311:37 - unnecessary_non_null_assertion
+   info - Don't use 'BuildContext's across async gaps - lib\splash_screen.dart:29:20 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\splash_screen.dart:73:44 - deprecated_member_use
+warning - Unused import: 'package:flutter/material.dart' - test\widget_test.dart:8:8 - unused_import
+
+flutter : 63 issues 
+found. (ran in 14.9s)
+At line:1 char:1
++ flutter analyze 2>&1 
+| Out-File -Encoding 
+utf8 out2.txt; 
+Get-Content  ...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified  
+  : (63 issues found.   
+  (ran in 14.9s):Str    
+ing) [], RemoteExce    
+ption
+    + FullyQualifiedErr 
+   orId : NativeComman  
+  dError
+ 

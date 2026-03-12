@@ -1,10 +1,11 @@
-
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/group_model.dart';
 import '../models/user_model.dart';
+import 'notification_service.dart';
+import 'firestore_service.dart';
 
 class GroupService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -19,30 +20,19 @@ class GroupService {
     final groupRef = _db.collection('groups').doc();
     final groupId = groupRef.id;
 
-    final group = Group(
-      id: groupId,
-      name: name,
-      code: code,
-      ownerId: user.uid,
-      createdAt: DateTime.now(),
-    );
-
     // Batch write to ensure atomicity
     final batch = _db.batch();
 
-    // 1. Create group document
-    batch.set(groupRef, group.toMap());
-
-    // 2. Add creator to members subcollection
-    final memberRef = groupRef.collection('members').doc(user.uid);
-    batch.set(memberRef, {
-      'name': user.displayName ?? '',
-      'email': user.email ?? '',
-      'photoUrl': user.photoURL,
-      'joinedAt': FieldValue.serverTimestamp(),
+    // 1. Create group document with members array
+    batch.set(groupRef, {
+      "name": name,
+      "code": code,
+      "ownerId": user.uid,
+      "members": [user.uid],
+      "createdAt": FieldValue.serverTimestamp()
     });
 
-    // 3. Add groupId to user's joinedGroups array
+    // 2. Add groupId to user's joinedGroups array
     final userRef = _db.collection('users').doc(user.uid);
     batch.update(userRef, {
       'joinedGroups': FieldValue.arrayUnion([groupId]),
@@ -75,21 +65,16 @@ class GroupService {
 
     // Check if already a member (optimization: check user's array first)
     final userDoc = await _db.collection('users').doc(user.uid).get();
-    final joinedGroups = List<String>.from(userDoc['joinedGroups'] ?? []);
+    final joinedGroups = List<String>.from(userDoc.data()?['joinedGroups'] ?? []);
     if (joinedGroups.contains(groupId)) {
       throw Exception('You are already a member of this group');
     }
 
     final batch = _db.batch();
 
-    // 2. Add user to members subcollection
-    final memberRef =
-        _db.collection('groups').doc(groupId).collection('members').doc(user.uid);
-    batch.set(memberRef, {
-      'name': user.displayName ?? '',
-      'email': user.email ?? '',
-      'photoUrl': user.photoURL,
-      'joinedAt': FieldValue.serverTimestamp(),
+    // 2. Add user to group's members array
+    batch.update(groupDoc.reference, {
+      'members': FieldValue.arrayUnion([user.uid]),
     });
 
     // 3. Add groupId to user's joinedGroups
@@ -99,6 +84,15 @@ class GroupService {
     });
 
     await batch.commit();
+
+    // 4. Send notification to group members
+    await _notifyGroupMembers(
+      groupId: groupId,
+      title: 'New Member!',
+      body: '${user.displayName} joined $groupName',
+      excludeUid: user.uid,
+    );
+
     return groupName;
   }
 
@@ -109,10 +103,11 @@ class GroupService {
 
     final batch = _db.batch();
 
-    // 1. Remove user from members subcollection
-    final memberRef =
-        _db.collection('groups').doc(groupId).collection('members').doc(user.uid);
-    batch.delete(memberRef);
+    // 1. Remove user from group's members array
+    final groupRef = _db.collection('groups').doc(groupId);
+    batch.update(groupRef, {
+      'members': FieldValue.arrayRemove([user.uid]),
+    });
 
     // 2. Remove groupId from user's joinedGroups
     final userRef = _db.collection('users').doc(user.uid);
@@ -121,6 +116,17 @@ class GroupService {
     });
 
     await batch.commit();
+
+    // 3. Notify remaining members
+    final groupDoc = await _db.collection('groups').doc(groupId).get();
+    if (groupDoc.exists) {
+      await _notifyGroupMembers(
+        groupId: groupId,
+        title: 'Member Left',
+        body: '${user.displayName} left ${groupDoc['name']}',
+        excludeUid: user.uid,
+      );
+    }
   }
 
   // 5. DELETE GROUP (Admin only)
@@ -130,7 +136,7 @@ class GroupService {
 
     final groupRef = _db.collection('groups').doc(groupId);
     final groupDoc = await groupRef.get();
-    
+
     if (!groupDoc.exists) throw Exception('Group not found');
     if (groupDoc['createdBy'] != user.uid) {
       throw Exception('Only the admin can delete the group');
@@ -140,18 +146,19 @@ class GroupService {
     // For a college project, we will manually delete subcollections fetched.
     // In production, use Cloud Functions.
 
-    // 1. Delete all members
-    final membersSnap = await groupRef.collection('members').get();
-    for (var doc in membersSnap.docs) {
-      // Remove group from user's joinedGroups
-      await _db.collection('users').doc(doc.id).update({
-        'joinedGroups': FieldValue.arrayRemove([groupId])
+    // 1. Remove group from all members' joinedGroups arrays
+    final membersList = List<String>.from(groupDoc.data()?['members'] ?? []);
+    for (var memberId in membersList) {
+      await _db.collection('users').doc(memberId).update({
+        'joinedGroups': FieldValue.arrayRemove([groupId]),
       });
-      await doc.reference.delete();
     }
 
     // 2. Delete all expenses
-    final expensesSnap = await groupRef.collection('expenses').get();
+    final expensesSnap = await _db
+        .collection('expenses')
+        .where('groupId', isEqualTo: groupId)
+        .get();
     for (var doc in expensesSnap.docs) {
       await doc.reference.delete();
     }
@@ -172,20 +179,18 @@ class GroupService {
     // OR we can query groups where 'members/{uid}' exists? No, Firestore subcollection query is limited.
     // Best approach given structure:
     // Query groups where ID is in `joinedGroups`? NO, `whereIn` limit 10.
-    
+
     // Alternative for College Project:
     // Stream User -> Get joinedGroups IDs -> Stream each group? specific/complex.
-    
+
     // Simpler: Stream `users/{uid}` and map to a list of Futures? No, StreamBuilder needs a stream.
-    
+
     // Let's stick to the previous pattern if possible, but the requirement says:
     // "users/{uid} - joinedGroups: array of groupIds"
-    
-    return _db
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .asyncMap((userSnap) async {
+
+    return _db.collection('users').doc(user.uid).snapshots().asyncMap((
+      userSnap,
+    ) async {
       final data = userSnap.data();
       if (data == null || data['joinedGroups'] == null) return [];
 
@@ -196,7 +201,7 @@ class GroupService {
       // Note: `whereIn` is limited to 10.
       if (groupIds.length > 10) {
         // Just take first 10 for safety in this project scope
-        groupIds.length = 10; 
+        groupIds.length = 10;
       }
 
       final groupsSnap = await _db
@@ -214,16 +219,19 @@ class GroupService {
   Future<String> _generateUniqueCode() async {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1
     final rand = Random();
-    
+
     while (true) {
-      final code = List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
-      
+      final code = List.generate(
+        6,
+        (_) => chars[rand.nextInt(chars.length)],
+      ).join();
+
       final snap = await _db
           .collection('groups')
           .where('code', isEqualTo: code)
           .limit(1)
           .get();
-      
+
       if (snap.docs.isEmpty) {
         return code;
       }
@@ -232,32 +240,75 @@ class GroupService {
 
   // HELPER: Get member count (for UI)
   Future<int> getMemberCount(String groupId) async {
-    final countQuery = await _db
-        .collection('groups')
-        .doc(groupId)
-        .collection('members')
-        .count()
-        .get();
-    return countQuery.count ?? 0;
+    final groupDoc = await _db.collection('groups').doc(groupId).get();
+    if (!groupDoc.exists) return 0;
+
+    final membersList = List<String>.from(groupDoc.data()?['members'] ?? []);
+    return membersList.length;
   }
 
-  // 6. GET GROUP MEMBERS
-  Future<List<AppUser>> getGroupMembers(String groupId) async {
-    final snap = await _db
-        .collection('groups')
-        .doc(groupId)
-        .collection('members')
+  // 6. LOAD GROUP MEMBERS
+  Future<List<AppUser>> loadGroupMembers(String groupId) async {
+    // 1. Get group document to find member IDs
+    final groupDoc = await _db.collection('groups').doc(groupId).get();
+    if (!groupDoc.exists) return [];
+
+    final memberIds = List<String>.from(groupDoc.data()?['members'] ?? []);
+    if (memberIds.isEmpty) return [];
+
+    // 2. Query users collection
+    final usersSnap = await _db
+        .collection('users')
+        .where(FieldPath.documentId, whereIn: memberIds.take(10).toList())
         .get();
 
-    return snap.docs.map((doc) {
+    return usersSnap.docs.map((doc) {
       final data = doc.data();
       return AppUser(
         uid: doc.id,
         name: data['name'] ?? '',
         email: data['email'] ?? '',
         photoUrl: data['photoUrl'],
-        createdAt: (data['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt:
+            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
     }).toList();
+  }
+
+  // HELPER: Fetch tokens and send notification
+  Future<void> _notifyGroupMembers({
+    required String groupId,
+    required String title,
+    required String body,
+    required String excludeUid,
+  }) async {
+    try {
+      final members = await loadGroupMembers(groupId);
+      final memberUids = members
+          .map((m) => m.uid)
+          .where((uid) => uid != excludeUid)
+          .toList();
+
+      if (memberUids.isEmpty) return;
+
+      final users = await FirestoreService.instance.getUsers(memberUids);
+      final tokens = users
+          .map((u) => u.fcmToken)
+          .where((t) => t != null && t.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      if (tokens.isNotEmpty) {
+        await NotificationService().sendGroupNotification(
+          groupId: groupId,
+          title: title,
+          body: body,
+          excludeUid: excludeUid,
+          targetTokens: tokens,
+        );
+      }
+    } catch (e) {
+      // Don't crash the main flow if notification fails
+    }
   }
 }

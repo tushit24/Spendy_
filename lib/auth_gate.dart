@@ -5,6 +5,7 @@ import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'main_nav_screen.dart';
 import 'login_screen.dart';
+import 'services/notification_service.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -26,10 +27,15 @@ class AuthGate extends StatelessWidget {
         }
 
         return FutureBuilder(
-          future: FirestoreService.instance.createUserIfNotExists(user),
+          future: () async {
+            await FirestoreService.instance.createUserIfNotExists(user);
+            await NotificationService().init(user.uid);
+          }(),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
-               return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
             if (snap.hasError) {
               return Scaffold(
@@ -45,4 +51,3 @@ class AuthGate extends StatelessWidget {
     );
   }
 }
-

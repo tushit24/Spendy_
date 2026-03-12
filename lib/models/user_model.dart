@@ -6,6 +6,10 @@ class AppUser {
   final String email;
   final String? photoUrl;
   final DateTime createdAt;
+  final String? fcmToken;
+  final bool requestDailyReminder;
+  final bool requestMonthlyReminder;
+  final String currency;
 
   final List<String> joinedGroups;
 
@@ -15,6 +19,10 @@ class AppUser {
     required this.email,
     required this.createdAt,
     this.photoUrl,
+    this.fcmToken,
+    this.requestDailyReminder = true,
+    this.requestMonthlyReminder = true,
+    this.currency = 'INR',
     this.joinedGroups = const [],
   });
 
@@ -24,8 +32,11 @@ class AppUser {
       name: data['name'] as String? ?? '',
       email: data['email'] as String? ?? '',
       photoUrl: data['photoUrl'] as String?,
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      fcmToken: data['fcmToken'] as String?,
+      requestDailyReminder: data['requestDailyReminder'] as bool? ?? true,
+      requestMonthlyReminder: data['requestMonthlyReminder'] as bool? ?? true,
+      currency: data['currency'] as String? ?? 'INR',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       joinedGroups: List<String>.from(data['joinedGroups'] ?? []),
     );
   }
@@ -35,9 +46,12 @@ class AppUser {
       'name': name,
       'email': email,
       'photoUrl': photoUrl,
+      'fcmToken': fcmToken,
+      'requestDailyReminder': requestDailyReminder,
+      'requestMonthlyReminder': requestMonthlyReminder,
+      'currency': currency,
       'createdAt': createdAt,
       'joinedGroups': joinedGroups,
     };
   }
 }
-

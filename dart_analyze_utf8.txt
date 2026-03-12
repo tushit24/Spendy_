@@ -1,0 +1,79 @@
+﻿Analyzing Spendy_...
+
+  error - lib\main_nav_screen.dart:1979:17 - Expected to find ']'. - expected_token
+  error - lib\main_nav_screen.dart:1980:15 - Expected an identifier. - missing_identifier
+  error - lib\main_nav_screen.dart:1980:15 - Expected to find ')'. - expected_token
+  error - lib\services\fcm_service.dart:76:14 - The class 'FirestoreService' doesn't have an unnamed constructor. Try using one of the named constructors defined in 'FirestoreService'. - new_with_undefined_constructor_default
+  error - lib\services\fcm_service.dart:120:31 - The named parameter 'id' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\fcm_service.dart:121:7 - Too many positional arguments: 0 expected, but 4 found. Try removing the extra positional arguments, or specifying the name for named arguments. - extra_positional_arguments_could_be_named
+  error - lib\services\firestore_service.dart:112:26 - The getter 'payerName' isn't defined for the type 'Expense'. Try importing the library that defines 'payerName', correcting the name to the name of an existing getter, or defining a getter or field named 'payerName'. - undefined_getter
+  error - lib\services\firestore_service.dart:186:42 - The getter 'payerName' isn't defined for the type 'Expense'. Try importing the library that defines 'payerName', correcting the name to the name of an existing getter, or defining a getter or field named 'payerName'. - undefined_getter
+  error - lib\services\local_notification_service.dart:106:44 - The named parameter 'id' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:107:7 - Too many positional arguments: 0 expected, but 4 found. Try removing the extra positional arguments, or specifying the name for named arguments. - extra_positional_arguments_could_be_named
+  error - lib\services\local_notification_service.dart:131:44 - The named parameter 'id' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:131:44 - The named parameter 'notificationDetails' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:131:44 - The named parameter 'scheduledDate' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:132:7 - Too many positional arguments: 0 expected, but 5 found. Try removing the extra positional arguments, or specifying the name for named arguments. - extra_positional_arguments_could_be_named
+  error - lib\services\local_notification_service.dart:138:7 - The named parameter 'uiLocalNotificationDateInterpretation' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'uiLocalNotificationDateInterpretation'. - undefined_named_parameter
+  error - lib\services\local_notification_service.dart:139:11 - Undefined name 'UILocalNotificationDateInterpretation'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\services\local_notification_service.dart:147:44 - The named parameter 'id' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:147:51 - Too many positional arguments: 0 expected, but 1 found. Try removing the extra positional arguments, or specifying the name for named arguments. - extra_positional_arguments_could_be_named
+  error - lib\services\local_notification_service.dart:175:44 - The named parameter 'id' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:175:44 - The named parameter 'notificationDetails' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:175:44 - The named parameter 'scheduledDate' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:176:7 - Too many positional arguments: 0 expected, but 5 found. Try removing the extra positional arguments, or specifying the name for named arguments. - extra_positional_arguments_could_be_named
+  error - lib\services\local_notification_service.dart:182:7 - The named parameter 'uiLocalNotificationDateInterpretation' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'uiLocalNotificationDateInterpretation'. - undefined_named_parameter
+  error - lib\services\local_notification_service.dart:183:11 - Undefined name 'UILocalNotificationDateInterpretation'. Try correcting the name to one that is defined, or defining the name. - undefined_identifier
+  error - lib\services\local_notification_service.dart:191:44 - The named parameter 'id' is required, but there's no corresponding argument. Try adding the required argument. - missing_required_argument
+  error - lib\services\local_notification_service.dart:191:51 - Too many positional arguments: 0 expected, but 1 found. Try removing the extra positional arguments, or specifying the name for named arguments. - extra_positional_arguments_could_be_named
+warning - lib\login_screen.dart:1:8 - Unused import: 'package:firebase_auth/firebase_auth.dart'. Try removing the import directive. - unused_import
+warning - lib\main_nav_screen.dart:478:10 - The value of the field '_timeRange' isn't used. Try removing the field, or using it. - unused_field
+warning - lib\main_nav_screen.dart:481:22 - The value of the field '_timeRanges' isn't used. Try removing the field, or using it. - unused_field
+warning - lib\services\firestore_service.dart:108:25 - The operand can't be 'null', so the condition is always 'true'. Remove the condition. - unnecessary_null_comparison
+warning - lib\services\firestore_service.dart:108:51 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\services\firestore_service.dart:110:33 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\services\firestore_service.dart:181:27 - The operand can't be 'null', so the condition is always 'true'. Remove the condition. - unnecessary_null_comparison
+warning - lib\services\firestore_service.dart:181:53 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\services\firestore_service.dart:184:35 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - test\widget_test.dart:8:8 - Unused import: 'package:flutter/material.dart'. Try removing the import directive. - unused_import
+   info - lib\main_nav_screen.dart:3:8 - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart'. Try removing the import directive. - unnecessary_import
+   info - lib\main_nav_screen.dart:103:11 - The local variable '_nameController' starts with an underscore. Try renaming the variable to not start with an underscore. - no_leading_underscores_for_local_identifiers
+   info - lib\main_nav_screen.dart:128:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:132:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:146:11 - The local variable '_codeController' starts with an underscore. Try renaming the variable to not start with an underscore. - no_leading_underscores_for_local_identifiers
+   info - lib\main_nav_screen.dart:171:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:176:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:183:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:217:38 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:221:38 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:334:56 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:377:33 - 'Share' is deprecated and shouldn't be used. Use SharePlus instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:377:39 - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:390:33 - 'Share' is deprecated and shouldn't be used. Use SharePlus instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:390:39 - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:446:38 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:450:38 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:478:10 - The private field _timeRange could be 'final'. Try making the field 'final'. - prefer_final_fields
+   info - lib\main_nav_screen.dart:777:148 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:778:149 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:779:105 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:780:15 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:868:45 - Statements in a for should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:948:55 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1155:44 - Statements in a for should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1189:20 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:1190:27 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:1255:30 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1256:28 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1525:95 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1545:20 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1819:42 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:1952:34 - 'Share' is deprecated and shouldn't be used. Use SharePlus instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1952:40 - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1988:20 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\onboarding_screen.dart:84:44 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\onboarding_screen.dart:92:51 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\splash_screen.dart:29:20 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\splash_screen.dart:73:44 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+75 issues found.
