@@ -18,6 +18,7 @@ import 'models/expense_model.dart';
 import 'models/user_model.dart';
 import 'services/notification_service.dart';
 import 'utils/debt_simplification.dart';
+import 'screens/group_details_screen.dart';
 
 String getCurrencySymbol(String currencyCode) {
   switch (currencyCode) {
@@ -358,13 +359,12 @@ class _MainNavScreenState extends State<MainNavScreen>
                   ),
                   child: InkWell(
                     onTap: () {
-                      // Navigate to group details or filter expenses by this group
-                      setState(() {
-                        _selectedGroupId = group.id;
-                        _tabController.animateTo(
-                          2,
-                        ); // Switch to Activity tab (index 2)
-                      });
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => GroupDetailsScreen(groupId: group.id),
+                        ),
+                      );
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -1594,7 +1594,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     return DateFormat('MMM d, yyyy').format(dt);
   }
 
-  void _showExpenseDetails(Expense exp) {
+  void _showExpenseDetails(Expense exp, String groupName, String groupOwnerId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1606,6 +1606,8 @@ class _ActivityTabState extends State<_ActivityTab> {
         return _ExpenseDetailsSheet(
           expense: exp,
           currentUser: widget.currentUser,
+          groupName: groupName,
+          groupOwnerId: groupOwnerId,
         );
       },
     );
@@ -1992,7 +1994,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                                       ),
                                       ...grouped[date]!.map(
                                         (exp) =>
-                                            _buildExpenseCard(exp, user.uid),
+                                            _buildExpenseCard(exp, user.uid, allGroups),
                                       ),
                                     ],
                                   ),
@@ -2009,15 +2011,12 @@ class _ActivityTabState extends State<_ActivityTab> {
     );
   }
 
-  Widget _buildExpenseCard(Expense exp, String currentUserUid) {
-    // Fetch group name?
-    // We need to look up group name.
-    // We can just stream groups in parent and pass map?
-    // Or just show ID? Or fetch.
-    // For performance, passing a map of GroupID -> Name from parent is better.
-    // But parent stream is streamUserGroups.
+  Widget _buildExpenseCard(Expense exp, String currentUserUid, List<Group> allGroups) {
+    final groupName = allGroups.firstWhere(
+      (g) => g.id == exp.groupId,
+      orElse: () => Group(id: '', name: 'Unknown', code: '', ownerId: '', createdAt: DateTime(0)),
+    ).name;
 
-    // Color logic? Random or hashed?
     final color =
         Colors.primaries[exp.groupId.hashCode % Colors.primaries.length];
 
@@ -2027,92 +2026,104 @@ class _ActivityTabState extends State<_ActivityTab> {
       child: Card(
         color: AppTheme.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: color,
-            child: const Icon(Icons.attach_money, color: Colors.white),
-          ),
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  exp.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
+        child: FutureBuilder<AppUser?>(
+          future: FirestoreService.instance.getUser(exp.payerId),
+          builder: (context, snapshot) {
+            final payerName = snapshot.data?.uid == currentUserUid ? 'You' : (snapshot.data?.name ?? 'Unknown');
+
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundColor: color,
+                child: const Icon(Icons.attach_money, color: Colors.white),
               ),
-              const SizedBox(width: 8),
-              _buildStatusBadge(exp.status),
-            ],
-          ),
-          subtitle: Text(
-            'Groups can be looked up... • Paid by...',
-            // Simplifying subtitle for now as we don't have easy synchronous access to names here without more lookups.
-            // We can resolve in Details.
-          ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${getCurrencySymbol(widget.currentUser.currency)}${(exp.shares[currentUserUid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              // Reactions
-              SizedBox(
-                height: 24,
-                child: StreamBuilder<String?>(
-                  stream: FirestoreService.instance.streamUserReaction(
-                    groupId: exp.groupId!,
-                    expenseId: exp.id,
-                    uid: currentUserUid,
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      exp.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  builder: (context, snap) {
-                    final myReaction = snap.data;
-                    return ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      shrinkWrap: true,
-                      itemCount: _emojiOptions.length,
-                      itemBuilder: (context, index) {
-                        final emoji = _emojiOptions[index];
-                        final isSelected = myReaction == emoji;
-                        return GestureDetector(
-                          onTap: () {
-                            FirestoreService.instance.toggleReaction(
-                              groupId: exp.groupId!,
-                              expenseId: exp.id,
-                              emoji: emoji,
-                              uid: currentUserUid,
+                  const SizedBox(width: 8),
+                  _buildStatusBadge(exp.status),
+                ],
+              ),
+              subtitle: Text(
+                '$groupName • Paid by $payerName',
+                style: const TextStyle(color: AppTheme.textSecondary),
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${getCurrencySymbol(widget.currentUser.currency)}${(exp.shares[currentUserUid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  // Reactions
+                  SizedBox(
+                    height: 24,
+                    child: StreamBuilder<String?>(
+                      stream: FirestoreService.instance.streamUserReaction(
+                        groupId: exp.groupId!,
+                        expenseId: exp.id,
+                        uid: currentUserUid,
+                      ),
+                      builder: (context, snap) {
+                        final myReaction = snap.data;
+                        return ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          shrinkWrap: true,
+                          itemCount: _emojiOptions.length,
+                          itemBuilder: (context, index) {
+                            final emoji = _emojiOptions[index];
+                            final isSelected = myReaction == emoji;
+                            return GestureDetector(
+                              onTap: () {
+                                FirestoreService.instance.toggleReaction(
+                                  groupId: exp.groupId!,
+                                  expenseId: exp.id,
+                                  emoji: emoji,
+                                  uid: currentUserUid,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: Text(
+                                  emoji,
+                                  style: TextStyle(
+                                    fontSize: isSelected ? 18 : 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? AppTheme.yellow
+                                        : AppTheme.textSecondary.withOpacity(0.5),
+                                  ),
+                                ),
+                              ),
                             );
                           },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: Text(
-                              emoji,
-                              style: TextStyle(
-                                fontSize: isSelected ? 18 : 14,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isSelected
-                                    ? AppTheme.yellow
-                                    : AppTheme.textSecondary.withOpacity(0.5),
-                              ),
-                            ),
-                          ),
                         );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          onTap: () => _showExpenseDetails(exp),
+              onTap: () {
+                final group = allGroups.firstWhere(
+                  (g) => g.id == exp.groupId,
+                  orElse: () => Group(id: '', name: 'Unknown', code: '', ownerId: '', createdAt: DateTime(0)),
+                );
+                _showExpenseDetails(exp, groupName, group.ownerId);
+              },
+            );
+          },
         ),
       ),
     );
@@ -2152,15 +2163,19 @@ class _ActivityTabState extends State<_ActivityTab> {
 
 class _ExpenseDetailsSheet extends StatelessWidget {
   final Expense expense;
-  final AppUser currentUser; // Added currentUser
+  final AppUser currentUser;
+  final String groupName;
+  final String groupOwnerId;
+
   const _ExpenseDetailsSheet({
     required this.expense,
-    required this.currentUser, // Added currentUser
+    required this.currentUser,
+    required this.groupName,
+    required this.groupOwnerId,
   });
 
   @override
   Widget build(BuildContext context) {
-    // We need to fetch names for payer and participants
     return FutureBuilder<List<AppUser>>(
       future: FirestoreService.instance.getUsers(
         {...expense.participants, expense.payerId}.toList(),
@@ -2178,11 +2193,6 @@ class _ExpenseDetailsSheet extends StatelessWidget {
             createdAt: DateTime.now(),
           ),
         );
-        // final currentUser = AuthService.instance.currentUser; // Removed, now passed in
-        final participantNames = users
-            .where((u) => expense.participants.contains(u.uid))
-            .map((u) => u.name)
-            .join(', ');
 
         return SafeArea(
           child: Padding(
@@ -2206,38 +2216,108 @@ class _ExpenseDetailsSheet extends StatelessWidget {
                             expense.title,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 20,
+                              fontSize: 24,
+                              color: AppTheme.textPrimary,
                             ),
+                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 16),
-                          Text('Paid by: ${payer.name}'),
-                          Text('Participants: $participantNames'),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 8),
                           Text(
-                            'Amount: ${getCurrencySymbol(currentUser.currency)}${expense.amount.toStringAsFixed(0)}',
+                            '$groupName • Paid by ${payer.uid == currentUser.uid ? 'You' : payer.name}',
+                            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Total Amount: ${getCurrencySymbol(currentUser.currency)}${expense.amount.toStringAsFixed(0)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                              fontSize: 20,
+                              color: AppTheme.yellow,
                             ),
+                            textAlign: TextAlign.center,
                           ),
+                          const SizedBox(height: 24),
+                          const Text('Participants & Shares', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 12),
+                          ...expense.participants.map((uid) {
+                            final u = users.firstWhere(
+                              (user) => user.uid == uid,
+                              orElse: () => AppUser(uid: '', email: '', name: 'Unknown', createdAt: DateTime.now()),
+                            );
+                            final share = expense.shares[uid] ?? 0;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(u.uid == currentUser.uid ? 'You' : u.name, style: const TextStyle(fontSize: 16)),
+                                  Text(
+                                    '${getCurrencySymbol(currentUser.currency)}${share.toStringAsFixed(0)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (expense.status == 'owed')
+                  // RULE 1: Settle Up — only if current user owes money
+                  if (currentUser.uid != expense.payerId &&
+                      ((expense.shares[currentUser.uid] as num?)?.toDouble() ?? 0) > 0)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.payment),
-                        label: const Text('Settle Up'),
+                        label: Text(
+                            'Settle Up ${getCurrencySymbol(currentUser.currency)}${((expense.shares[currentUser.uid] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () {
                           Navigator.pop(context);
                           _showSimpleSettle(context, expense);
                         },
+                      ),
+                    ),
+                  // RULE 2: Edit — only if current user is the payer
+                  if (expense.payerId == currentUser.uid)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Edit coming soon')));
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Edit'),
+                        ),
+                      ),
+                    ),
+                  // RULE 3: Delete — only if payer or group owner
+                  if (expense.payerId == currentUser.uid ||
+                      currentUser.uid == groupOwnerId)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextButton(
+                        onPressed: () async {
+                          await FirestoreService.instance
+                              .deleteExpense(expense.id);
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.red),
+                        child: const Text('Delete Expense'),
                       ),
                     ),
                 ],

@@ -255,6 +255,22 @@ class FirestoreService {
         );
   }
 
+  Stream<List<Expense>> streamGroupExpenses(String groupId) {
+    return _db
+        .collection('expenses')
+        .where('groupId', isEqualTo: groupId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) =>
+              snap.docs.map((d) => Expense.fromMap(d.id, d.data())).toList(),
+        );
+  }
+
+  Future<void> deleteExpense(String expenseId) {
+    return _db.collection('expenses').doc(expenseId).delete();
+  }
+
   Future<void> updateExpenseStatus(String groupId, String expenseId, String status) async {
     await _db.collection('expenses').doc(expenseId).update({'status': status});
 

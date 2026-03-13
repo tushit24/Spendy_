@@ -215,6 +215,14 @@ class GroupService {
     });
   }
 
+  Stream<Group?> streamGroup(String groupId) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .snapshots()
+        .map((snap) => snap.exists ? Group.fromMap(snap.id, snap.data()!) : null);
+  }
+
   // HELPER: Generate unique code
   Future<String> _generateUniqueCode() async {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1
