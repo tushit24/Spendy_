@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../models/group_model.dart';
 import '../models/expense_model.dart';
 import '../models/user_model.dart';
 import '../services/group_service.dart';
 import '../services/firestore_service.dart';
+import '../services/upi_service.dart';
 import '../utils/debt_simplification.dart';
 
 String getCurrencySymbol(String currencyCode) {
@@ -263,6 +266,105 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     );
   }
 
+  // ─── PART 4.5: Balances (Who Owes Who) Section ────────────────────────
+  Widget _buildWhoOwesWhoSection(List<Expense> expenses) {
+    if (group == null || currentUser == null) return const SizedBox.shrink();
+
+    final settlements =
+        DebtSimplifier.simplifyDebts(expenses, groupId: widget.groupId);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Balances',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary)),
+          const SizedBox(height: 8),
+          if (settlements.isEmpty)
+            Card(
+              color: AppTheme.card,
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(
+                  child: Text('All balances settled 🎉',
+                      style: TextStyle(
+                          color: AppTheme.green, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            )
+          else
+            FutureBuilder<List<AppUser>>(
+              future: GroupService().loadGroupMembers(widget.groupId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final members = snapshot.data!;
+                final membersMap = {for (var m in members) m.uid: m.name};
+
+                return Card(
+                  color: AppTheme.card,
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: settlements.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 16, color: AppTheme.background),
+                    itemBuilder: (context, index) {
+                      final settlement = settlements[index];
+                      final debtorId = settlement.from;
+                      final creditorId = settlement.to;
+
+                      final debtorName = debtorId == currentUserId
+                          ? 'You'
+                          : (membersMap[debtorId] ?? 'Unknown');
+                      final creditorName = creditorId == currentUserId
+                          ? 'You'
+                          : (membersMap[creditorId] ?? 'Unknown');
+
+                      final amountStr =
+                          '${getCurrencySymbol(currentUser!.currency)}${settlement.amount.toStringAsFixed(0)}';
+
+                      String text;
+                      Color color;
+
+                      if (creditorId == currentUserId) {
+                        text = '$debtorName owes You $amountStr';
+                        color = AppTheme.green;
+                      } else if (debtorId == currentUserId) {
+                        text = 'You owe $creditorName $amountStr';
+                        color = AppTheme.red;
+                      } else {
+                        text = '$debtorName owes $creditorName $amountStr';
+                        color = AppTheme.textPrimary;
+                      }
+
+                      return Text(
+                        text,
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
   // ─── PART 5: Members Section ──────────────────────────────────────────
   Widget _buildMembersSection(List<Expense> expenses) {
     if (group == null || currentUser == null) return const SizedBox.shrink();
@@ -426,15 +528,16 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                       );
                     }).toList(),
                     const SizedBox(height: 32),
-                    // RULE 1: Settle Up — only if current user owes money
-                    if (currentUserId != exp.payerId &&
+                    // RULE 1: Settle Up — only if NOT settled AND current user owes money
+                    if (!exp.isSettled &&
+                        currentUserId != exp.payerId &&
                         ((exp.shares[currentUserId] as num?)?.toDouble() ?? 0) > 0)
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
                             Navigator.pop(context);
-                            // Trigger settle up flow
+                            _showSettlePaymentModal(exp);
                           },
                           style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.green,
@@ -444,6 +547,25 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                                   borderRadius: BorderRadius.circular(12))),
                           child: Text(
                               'Settle Up ${getCurrencySymbol(currentUser?.currency ?? 'INR')}${((exp.shares[currentUserId] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}'),
+                        ),
+                      )
+                    // Show "Already Settled" badge for settled expenses
+                    else if (exp.isSettled)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.green.withAlpha(30),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Already Settled ✅',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.green,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     // RULE 2: Edit — only if current user is the payer
@@ -489,6 +611,193 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     );
   }
 
+  // ─── Settle Payment Modal (Settle in App / Pay via UPI) ────────────────
+  void _showSettlePaymentModal(Expense exp) {
+    final amount =
+        (exp.shares[currentUserId] as num?)?.toDouble() ?? 0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Settle Payment',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: const Icon(Icons.check_circle_outline,
+                      color: AppTheme.green, size: 32),
+                  title: const Text('Settle in App',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary)),
+                  subtitle: const Text(
+                      'Mark this expense as settled manually',
+                      style: TextStyle(color: AppTheme.textSecondary)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  tileColor: AppTheme.background,
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await FirestoreService.instance.updateExpenseStatus(
+                      exp.groupId,
+                      exp.id,
+                      'settled',
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Settlement of ${getCurrencySymbol(currentUser?.currency ?? 'INR')}${amount.toStringAsFixed(0)} recorded!'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet,
+                      color: AppTheme.blue, size: 32),
+                  title: const Text('Pay via UPI',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary)),
+                  subtitle: const Text(
+                      'Pay using Google Pay, PhonePe, Paytm, etc.',
+                      style: TextStyle(color: AppTheme.textSecondary)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  tileColor: AppTheme.background,
+                  onTap: () async {
+                    print("🔥 Pay via UPI clicked");
+
+                    final receiverUid = exp.payerId;
+
+                    final receiverUser = await FirestoreService.instance.getUser(receiverUid);
+                    final receiverUpi = receiverUser?.upiId;
+                    final receiverName = receiverUser?.name ?? 'User';
+
+                    print("Receiver UPI: $receiverUpi");
+
+                    if (receiverUpi == null || receiverUpi.trim().isEmpty) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("$receiverName hasn't added a UPI ID"),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    final upiAmount = (exp.shares[currentUserId] as num?)?.toDouble() ?? 0;
+
+                    final uri = Uri.parse(
+                      "upi://pay?pa=${receiverUpi.trim()}&pn=${Uri.encodeComponent(receiverName)}&am=$upiAmount&cu=INR&tn=Spendy",
+                    );
+
+                    print("🚀 Launching UPI: $uri");
+
+                    try {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } catch (e) {
+                      print("❌ Launch failed: $e");
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "No UPI app found. Please install Google Pay or PhonePe.",
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── Post-UPI Payment Confirmation Dialog ─────────────────────────────
+  void _showPaymentConfirmationDialog(Expense exp, String receiverUpi, String receiverName, double amount) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Confirm Payment'),
+        content: const Text('Did you complete the payment?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirestoreService.instance.updateExpenseStatus(
+                exp.groupId,
+                exp.id,
+                'settled',
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Settlement of ${getCurrencySymbol(currentUser?.currency ?? 'INR')}${amount.toStringAsFixed(0)} recorded!'),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.green,
+                foregroundColor: Colors.white),
+            child: const Text('Yes'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await launchUPI(
+                context: context,
+                upiId: receiverUpi,
+                name: receiverName,
+                amount: amount,
+              );
+              if (mounted) {
+                _showPaymentConfirmationDialog(exp, receiverUpi, receiverName, amount);
+              }
+            },
+            child: const Text('Open Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── PART 6: Group Expense Card ───────────────────────────────────────
   Widget _buildExpensesList(List<Expense> expenses) {
     if (expenses.isEmpty) {
@@ -499,6 +808,11 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 style: TextStyle(color: AppTheme.textSecondary))),
       );
     }
+
+    // Compute net group balance for current user
+    final balances = _computeBalances(expenses);
+    final netBalance = balances[currentUserId] ?? 0;
+    final isGroupSettled = netBalance.abs() < 0.01;
 
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 100),
@@ -524,15 +838,27 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
             String trailingLabel;
             Color trailingColor;
 
-            if (exp.status == 'settled') {
-              trailingLabel = 'Settled';
+            if (exp.status == 'settled' || isGroupSettled) {
+              trailingLabel = 'Settled ✅';
               trailingColor = AppTheme.textSecondary;
-            } else if (isPayer && netOwed > 0.01) {
-              trailingLabel = 'You are owed';
-              trailingColor = AppTheme.green;
-            } else if (!isPayer && myShare > 0.01) {
-              trailingLabel = 'You owe';
-              trailingColor = AppTheme.red;
+            } else if (netBalance > 0.01) {
+              // Current user is owed money overall
+              if (isPayer && netOwed > 0.01) {
+                trailingLabel = 'You are owed';
+                trailingColor = AppTheme.green;
+              } else {
+                trailingLabel = 'Settled ✅';
+                trailingColor = AppTheme.textSecondary;
+              }
+            } else if (netBalance < -0.01) {
+              // Current user owes money overall
+              if (!isPayer && myShare > 0.01) {
+                trailingLabel = 'You owe';
+                trailingColor = AppTheme.red;
+              } else {
+                trailingLabel = 'Settled ✅';
+                trailingColor = AppTheme.textSecondary;
+              }
             } else {
               trailingLabel = 'Not involved';
               trailingColor = AppTheme.textSecondary;
@@ -558,7 +884,7 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                       trailingLabel,
                       style: TextStyle(fontSize: 12, color: trailingColor),
                     ),
-                    if (netOwed > 0.01 && exp.status != 'settled')
+                    if (netOwed > 0.01 && exp.status != 'settled' && !isGroupSettled)
                       Text(
                         '${getCurrencySymbol(currentUser?.currency ?? 'INR')}${netOwed.toStringAsFixed(0)}',
                         style: TextStyle(
@@ -587,8 +913,36 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
     }
 
     return StreamBuilder<Group?>(
-      stream: GroupService().streamGroup(widget.groupId),
+      stream: GroupService().streamGroup(widget.groupId).timeout(const Duration(seconds: 30)),
       builder: (context, groupSnapshot) {
+        if (groupSnapshot.hasError) {
+          final isTimeout = groupSnapshot.error.toString().contains('TimeoutException');
+          return _AutoRetryWrapper(
+            onRetry: () => setState(() {}),
+            child: Scaffold(
+              backgroundColor: AppTheme.background,
+              appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(isTimeout ? Icons.hourglass_top_rounded : Icons.wifi_off, size: 60, color: isTimeout ? AppTheme.yellow : Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(isTimeout ? 'Taking longer than usual' : 'Something went wrong', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(isTimeout ? 'The server is slow to respond.' : 'Please check your connection and try again.', style: const TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() {}),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
         if (!groupSnapshot.hasData) {
           return const Scaffold(
               backgroundColor: AppTheme.background,
@@ -599,8 +953,50 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         // PART 1: Query ALL expenses for this group (no status filter)
         return StreamBuilder<List<Expense>>(
           stream: FirestoreService.instance
-              .streamGroupExpenses(widget.groupId),
+              .streamGroupExpenses(widget.groupId).timeout(const Duration(seconds: 30)),
           builder: (context, expenseSnapshot) {
+            if (expenseSnapshot.hasError) {
+              final isTimeout = expenseSnapshot.error.toString().contains('TimeoutException');
+              return _AutoRetryWrapper(
+                onRetry: () => setState(() {}),
+                child: Scaffold(
+                  backgroundColor: AppTheme.background,
+                  appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0, title: Text(group!.name)),
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(isTimeout ? Icons.hourglass_top_rounded : Icons.wifi_off, size: 60, color: isTimeout ? AppTheme.yellow : Colors.grey),
+                        const SizedBox(height: 16),
+                        Text(isTimeout ? 'Taking longer than usual' : 'Could not load expenses', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => setState(() {}),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try Again'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+            if (expenseSnapshot.connectionState == ConnectionState.waiting && !expenseSnapshot.hasData) {
+              return Scaffold(
+                backgroundColor: AppTheme.background,
+                appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0, title: Text(group!.name)),
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Connecting...', style: TextStyle(color: AppTheme.textSecondary)),
+                    ],
+                  ),
+                ),
+              );
+            }
             final expenses = expenseSnapshot.data ?? [];
 
             return Scaffold(
@@ -664,6 +1060,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
                     _buildBalancesSection(expenses),
                     const SizedBox(height: 8),
+                    _buildWhoOwesWhoSection(expenses),
+                    const SizedBox(height: 16),
                     _buildMembersSection(expenses),
                     const SizedBox(height: 16),
                     const Padding(
@@ -685,4 +1083,34 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       },
     );
   }
+}
+
+class _AutoRetryWrapper extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onRetry;
+  const _AutoRetryWrapper({required this.child, required this.onRetry});
+
+  @override
+  State<_AutoRetryWrapper> createState() => _AutoRetryWrapperState();
+}
+
+class _AutoRetryWrapperState extends State<_AutoRetryWrapper> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (mounted) widget.onRetry();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

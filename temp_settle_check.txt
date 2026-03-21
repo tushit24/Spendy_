@@ -1,0 +1,65 @@
+Analyzing main_nav_screen.dart, expense_model.dart, debt_simplification.dart, group_details_screen.dart...
+
+warning - lib\main_nav_screen.dart:682:54 - The receiver can't be null, so the null-aware operator '?.' is unnecessary. Try replacing the operator '?.' with '.'. - invalid_null_aware_operator
+warning - lib\main_nav_screen.dart:919:54 - The left operand can't be null, so the right operand is never executed. Try removing the operator and the right operand. - dead_null_aware_expression
+warning - lib\main_nav_screen.dart:936:58 - The left operand can't be null, so the right operand is never executed. Try removing the operator and the right operand. - dead_null_aware_expression
+warning - lib\main_nav_screen.dart:1893:14 - The operand can't be 'null', so the condition is always 'false'. Try removing the condition, an enclosing condition, or the whole conditional statement. - unnecessary_null_comparison
+warning - lib\main_nav_screen.dart:2359:45 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\main_nav_screen.dart:2375:55 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\main_nav_screen.dart:2662:34 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\main_nav_screen.dart:2747:8 - The declaration '_showPaymentConfirmationDialog' isn't referenced. Try removing the declaration of '_showPaymentConfirmationDialog'. - unused_element
+warning - lib\main_nav_screen.dart:2766:28 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\main_nav_screen.dart:3023:14 - The operand can't be 'null', so the condition is always 'false'. Try removing the condition, an enclosing condition, or the whole conditional statement. - unnecessary_null_comparison
+warning - lib\screens\group_details_screen.dart:723:8 - The declaration '_showPaymentConfirmationDialog' isn't referenced. Try removing the declaration of '_showPaymentConfirmationDialog'. - unused_element
+   info - lib\main_nav_screen.dart:3:8 - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart'. Try removing the import directive. - unnecessary_import
+   info - lib\main_nav_screen.dart:122:10 - The private field _selectedGroupId could be 'final'. Try making the field 'final'. - prefer_final_fields
+   info - lib\main_nav_screen.dart:236:11 - The local variable '_nameController' starts with an underscore. Try renaming the variable to not start with an underscore. - no_leading_underscores_for_local_identifiers
+   info - lib\main_nav_screen.dart:261:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:268:21 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:281:11 - The local variable '_codeController' starts with an underscore. Try renaming the variable to not start with an underscore. - no_leading_underscores_for_local_identifiers
+   info - lib\main_nav_screen.dart:306:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:311:40 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:321:21 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:355:38 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:360:19 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:485:58 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:534:35 - 'Share' is deprecated and shouldn't be used. Use SharePlus instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:534:41 - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:550:35 - 'Share' is deprecated and shouldn't be used. Use SharePlus instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:550:41 - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:625:38 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:630:19 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:1136:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1142:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1146:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1148:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1266:45 - Statements in a for should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1351:57 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1632:42 - Statements in a for should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:1754:30 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1755:28 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:1808:41 - Unnecessary use of multiple underscores. Try using '_'. - unnecessary_underscores
+   info - lib\main_nav_screen.dart:1847:60 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:2392:66 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:2420:20 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:2471:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\main_nav_screen.dart:2548:30 - Unnecessary use of 'toList' in a spread. Try removing the invocation of 'toList'. - unnecessary_to_list_in_spreads
+   info - lib\main_nav_screen.dart:2691:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\main_nav_screen.dart:2699:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\main_nav_screen.dart:2718:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\main_nav_screen.dart:2726:23 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\main_nav_screen.dart:3007:42 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - lib\main_nav_screen.dart:3215:30 - 'Share' is deprecated and shouldn't be used. Use SharePlus instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:3215:36 - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\main_nav_screen.dart:3255:20 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\screens\group_details_screen.dart:193:55 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - lib\screens\group_details_screen.dart:194:62 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - lib\screens\group_details_screen.dart:405:43 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\screens\group_details_screen.dart:528:24 - Unnecessary use of 'toList' in a spread. Try removing the invocation of 'toList'. - unnecessary_to_list_in_spreads
+   info - lib\screens\group_details_screen.dart:576:56 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
+   info - lib\screens\group_details_screen.dart:666:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\screens\group_details_screen.dart:674:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\screens\group_details_screen.dart:693:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - lib\screens\group_details_screen.dart:701:23 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+
+61 issues found.

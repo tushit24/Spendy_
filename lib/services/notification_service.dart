@@ -29,7 +29,7 @@ class NotificationService {
     await enableDailyReminder();
     await enableMonthlyReminder();
     await enableDailySummaryReminder();
-    await enableSettlementReminder();
+    await checkSettlementReminder(userId);
   }
 
   // --- Local Notifications API ---
@@ -58,13 +58,7 @@ class NotificationService {
     await _localService.cancelDailySummaryReminder();
   }
 
-  Future<void> enableSettlementReminder() async {
-    await _localService.scheduleSettlementReminder();
-  }
-
-  Future<void> disableSettlementReminder() async {
-    await _localService.cancelSettlementReminder();
-  }
+  // Removed generic enable/disable settlement reminders as they are dynamic now
 
   /// Fetch today's expenses from Firestore and show an instant summary
   /// notification with real values. Useful to call at 9 PM or on demand.

@@ -61,6 +61,10 @@ class FirestoreService {
     return _db.collection('users').doc(uid).update({'fcmToken': token});
   }
 
+  Future<void> updateUserUpiId(String uid, String upiId) {
+    return _db.collection('users').doc(uid).update({'upiId': upiId});
+  }
+
   // ── Spent Counter Reset ──────────────────────────────────────────
 
   /// Saves the current timestamp as the user's reset date.

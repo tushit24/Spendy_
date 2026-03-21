@@ -10,6 +10,7 @@ class AppUser {
   final bool requestDailyReminder;
   final bool requestMonthlyReminder;
   final String currency;
+  final String? upiId;
 
   final List<String> joinedGroups;
 
@@ -24,6 +25,7 @@ class AppUser {
     this.requestMonthlyReminder = true,
     this.currency = 'INR',
     this.joinedGroups = const [],
+    this.upiId,
   });
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> data) {
@@ -38,6 +40,7 @@ class AppUser {
       currency: data['currency'] as String? ?? 'INR',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       joinedGroups: List<String>.from(data['joinedGroups'] ?? []),
+      upiId: data['upiId'] as String?,
     );
   }
 
@@ -52,6 +55,7 @@ class AppUser {
       'currency': currency,
       'createdAt': createdAt,
       'joinedGroups': joinedGroups,
+      'upiId': upiId,
     };
   }
 }

@@ -12,6 +12,9 @@ class Expense {
   final DateTime createdAt;
   final String status; // 'owed' / 'settled'
 
+  /// Central helper — use this instead of raw `status == 'settled'` checks.
+  bool get isSettled => status == 'settled';
+
   Expense({
     required this.id,
     required this.groupId,

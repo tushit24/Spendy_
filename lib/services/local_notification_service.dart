@@ -23,7 +23,7 @@ class LocalNotificationService {
     tz.initializeTimeZones();
 
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('ic_notification');
+        AndroidInitializationSettings('@drawable/notification_icon');
 
     // iOS Initialization (placeholder for future, even if Android only is required now)
     const DarwinInitializationSettings initializationSettingsIOS =
@@ -99,6 +99,7 @@ class LocalNotificationService {
 
     if (androidImplementation != null) {
       await androidImplementation.requestNotificationsPermission();
+      debugPrint("✅ Notification permission requested for Android");
     }
   }
 
@@ -129,42 +130,61 @@ class LocalNotificationService {
   }
 
   Future<void> showTestNotification() async {
-    await _flutterLocalNotificationsPlugin.show(
-      id: 0,
-      title: 'Test Notification',
-      body: 'This is a test notification from SPENDY.',
-      notificationDetails: _getReminderDetails(),
-      payload: 'test_payload',
-    );
-    debugPrint("🔔 Triggering test local notification...");
+    try {
+      await _flutterLocalNotificationsPlugin.show(
+        id: 999,
+        title: 'Test Notification',
+        body: 'If you see this, notifications work 🎉',
+        notificationDetails: _getSummaryDetails(),
+        payload: 'test_payload',
+      );
+      debugPrint("✅ Triggering test local notification... (ID 999)");
+    } catch (e) {
+      debugPrint("❌ Notification error: $e");
+    }
+  }
+
+  /// Debug function to list pending notifications
+  Future<void> debugNotifications() async {
+    try {
+      final pending =
+          await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+      debugPrint("📌 Pending notifications: ${pending.length}");
+      for (var p in pending) {
+        debugPrint("   - ID: ${p.id}, Title: ${p.title}, Body: ${p.body}");
+      }
+    } catch (e) {
+      debugPrint("❌ Error retrieving pending notifications: $e");
+    }
+  }
+
+  /// Helper to get the next instance of a given time (hour, minute)
+  tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
   }
 
   /// Schedules a daily reminder at 9 AM
   Future<void> scheduleDailyReminder() async {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      9, // 9 AM
-      0,
-    );
-
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    try {
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        id: 1,
+        title: 'Spendy Daily Reminder',
+        body: 'Did you spend anything today? Tap to record it!',
+        scheduledDate: _nextInstanceOfTime(20, 0), // 8 PM
+        notificationDetails: _getReminderDetails(),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+      debugPrint('✅ Scheduling daily summary reminder at: ${_nextInstanceOfTime(20, 0)}');
+    } catch (e) {
+      debugPrint("❌ Notification error during daily schedule: $e");
     }
-
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 1,
-      title: 'Daily Reminder',
-      body: 'Don’t forget to add today’s expenses!',
-      scheduledDate: scheduledDate,
-      notificationDetails: _getReminderDetails(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time, // Repeat daily
-    );
-    debugPrint("✅ Daily reminder scheduled successfully for: $scheduledDate");
   }
 
   /// Cancel Daily Reminder
@@ -185,29 +205,26 @@ class LocalNotificationService {
       0,
     );
 
+    // Better calculation for exact 1st of next month
     if (scheduledDate.isBefore(now)) {
-      // Move to next month
-      scheduledDate = tz.TZDateTime(
-        tz.local,
-        now.year + (now.month == 12 ? 1 : 0),
-        now.month == 12 ? 1 : now.month + 1,
-        1,
-        9,
-        0,
-      );
+      DateTime nextMonth = DateTime(now.year, now.month + 1, 1, 9);
+      scheduledDate = tz.TZDateTime.from(nextMonth, tz.local);
     }
 
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 2,
-      title: 'Monthly Review',
-      body: 'Review and settle your monthly expenses.',
-      scheduledDate: scheduledDate,
-      notificationDetails: _getReminderDetails(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents:
-          DateTimeComponents.dayOfMonthAndTime, // Repeat monthly
-    );
-    debugPrint("Monthly reminder scheduled at $scheduledDate");
+    try {
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        id: 2,
+        title: 'Monthly Review',
+        body: 'Review and settle your monthly expenses.',
+        scheduledDate: scheduledDate,
+        notificationDetails: _getReminderDetails(),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Replaces androidAllowWhileIdle: true
+        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime, // Repeat monthly
+      );
+      debugPrint("✅ Scheduling monthly reminder at: $scheduledDate");
+    } catch (e) {
+      debugPrint("❌ Notification error during monthly schedule: $e");
+    }
   }
 
   /// Cancel Monthly Reminder
@@ -236,21 +253,29 @@ class LocalNotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 3,
-      title: "Today's Spendy Summary",
-      body: 'See what you spent and owe today.',
-      scheduledDate: scheduledDate,
-      notificationDetails: _getSummaryDetails(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
-    debugPrint('✅ Daily summary reminder scheduled for: $scheduledDate');
+    try {
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        id: 3,
+        title: "Today's Spendy Summary",
+        body: 'See what you spent and owe today.',
+        scheduledDate: scheduledDate,
+        notificationDetails: _getSummaryDetails(),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+      debugPrint('✅ Scheduling daily summary reminder at: $scheduledDate');
+    } catch (e) {
+      debugPrint("❌ Notification error scheduling daily summary: $e");
+    }
   }
 
   Future<void> cancelDailySummaryReminder() async {
-    await _flutterLocalNotificationsPlugin.cancel(id: 3);
-    debugPrint('Daily summary reminder cancelled');
+    try {
+      await _flutterLocalNotificationsPlugin.cancel(id: 3);
+      debugPrint('✅ Daily summary reminder cancelled');
+    } catch (e) {
+      debugPrint("❌ Error cancelling daily summary: $e");
+    }
   }
 
   /// Shows an instant notification with computed daily expense totals.
@@ -272,50 +297,63 @@ class LocalNotificationService {
     }
     if (body.isEmpty) body.write('No expenses recorded today.');
 
-    await _flutterLocalNotificationsPlugin.show(
-      id: 3,
-      title: "Today's Spendy Summary",
-      body: body.toString(),
-      notificationDetails: _getSummaryDetails(),
-      payload: 'daily_summary',
-    );
-    debugPrint('🔔 Daily summary notification shown: ${body.toString()}');
+    try {
+      await _flutterLocalNotificationsPlugin.show(
+        id: 3,
+        title: "Today's Spendy Summary",
+        body: body.toString(),
+        notificationDetails: _getSummaryDetails(),
+        payload: 'daily_summary',
+      );
+      debugPrint('✅ Daily summary notification shown: ${body.toString()}');
+    } catch (e) {
+      debugPrint("❌ Notification error showing daily summary: $e");
+    }
   }
 
   // ───────────────────────────────────────────────────────────────
   // PART 5 — Settlement Reminder at 8 PM
   // ───────────────────────────────────────────────────────────────
 
-  /// Schedules a daily settlement check at 8 PM.
-  Future<void> scheduleSettlementReminder() async {
+  /// Schedules a future settlement reminder (if owed > 0)
+  Future<void> scheduleSettlementReminderWithValue({
+    required int totalOwed,
+    required String symbol,
+    required String toName,
+  }) async {
+    if (totalOwed <= 0) return;
+
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     tz.TZDateTime scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      20, // 8 PM
-      0,
+      tz.local, now.year, now.month, now.day, 20, 0, // 8 PM
     );
     if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
+      scheduledDate = scheduledDate.add(const Duration(days: 1)); // Next day
     }
 
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      id: 4,
-      title: 'Spendy Reminder',
-      body: 'You still have unsettled expenses. Tap to settle up.',
-      scheduledDate: scheduledDate,
-      notificationDetails: _getSummaryDetails(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
-    debugPrint('✅ Settlement reminder scheduled for: $scheduledDate');
+    try {
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        id: 4,
+        title: 'Spendy Settlement Reminder',
+        body: 'Reminder: You owe $symbol$totalOwed to $toName',
+        scheduledDate: scheduledDate,
+        notificationDetails: _getSummaryDetails(),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+      debugPrint('✅ Scheduling settlement reminder at: $scheduledDate for $symbol$totalOwed');
+    } catch (e) {
+      debugPrint("❌ Notification error scheduling settlement: $e");
+    }
   }
 
   Future<void> cancelSettlementReminder() async {
-    await _flutterLocalNotificationsPlugin.cancel(id: 4);
-    debugPrint('Settlement reminder cancelled');
+    try {
+      await _flutterLocalNotificationsPlugin.cancel(id: 4);
+      debugPrint('✅ Settlement reminder cancelled');
+    } catch (e) {
+      debugPrint("❌ Error cancelling settlement reminder: $e");
+    }
   }
 
   /// Shows an instant settlement reminder with the actual owed amount.
@@ -327,8 +365,7 @@ class LocalNotificationService {
     await _flutterLocalNotificationsPlugin.show(
       id: 4,
       title: 'Spendy Reminder',
-      body:
-          'You still owe $symbol$totalOwed in your groups. Tap to settle.',
+      body: 'You still owe $symbol$totalOwed in your groups. Tap to settle.',
       notificationDetails: _getSummaryDetails(),
       payload: 'settlement_reminder',
     );

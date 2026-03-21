@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Added for FirebaseAuth
 
 import 'services/auth_service.dart';
@@ -17,6 +19,7 @@ import 'models/group_model.dart';
 import 'models/expense_model.dart';
 import 'models/user_model.dart';
 import 'services/notification_service.dart';
+import 'services/upi_service.dart';
 import 'utils/debt_simplification.dart';
 import 'screens/group_details_screen.dart';
 
@@ -32,6 +35,160 @@ String getCurrencySymbol(String currencyCode) {
     default:
       return '₹';
   }
+}
+
+/// Returns true if the error is a timeout (not a real connectivity failure).
+bool _isTimeoutError(Object? error) {
+  if (error == null) return false;
+  return error.toString().contains('TimeoutException');
+}
+
+/// Reusable error view — auto-detects timeout vs real errors, auto-retries after 5s.
+Widget _buildErrorView({Object? error, String? message, VoidCallback? onRetry}) {
+  return _AutoRetryErrorView(error: error, message: message, onRetry: onRetry);
+}
+
+class _AutoRetryErrorView extends StatefulWidget {
+  final Object? error;
+  final String? message;
+  final VoidCallback? onRetry;
+
+  const _AutoRetryErrorView({this.error, this.message, this.onRetry});
+
+  @override
+  State<_AutoRetryErrorView> createState() => _AutoRetryErrorViewState();
+}
+
+class _AutoRetryErrorViewState extends State<_AutoRetryErrorView> {
+  Timer? _retryTimer;
+  int _countdown = 2;
+  Timer? _countdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAutoRetry();
+  }
+
+  void _startAutoRetry() {
+    _retryTimer?.cancel();
+    _countdownTimer?.cancel();
+    _countdown = 2;
+
+    // Countdown tick every second
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      setState(() { _countdown--; });
+      if (_countdown <= 0) timer.cancel();
+    });
+
+    // Auto-retry after 2 seconds
+    _retryTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted && widget.onRetry != null) {
+        widget.onRetry!();
+      }
+    });
+  }
+
+  void _manualRetry() {
+    _retryTimer?.cancel();
+    _countdownTimer?.cancel();
+    if (widget.onRetry != null) widget.onRetry!();
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTimeout = _isTimeoutError(widget.error);
+    final icon = isTimeout ? Icons.hourglass_top_rounded : Icons.wifi_off_rounded;
+    final iconColor = isTimeout ? AppTheme.yellow : AppTheme.red;
+    final title = widget.message ?? (isTimeout
+        ? 'Taking longer than usual'
+        : 'Something went wrong');
+    final subtitle = isTimeout
+        ? 'The server is slow to respond. Please try again.'
+        : 'Please check your connection and try again.';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 72, color: iconColor),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            if (widget.onRetry != null)
+              ElevatedButton.icon(
+                onPressed: _manualRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            Text(
+              _countdown > 0 ? 'Retrying in $_countdown s...' : 'Retrying...',
+              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reusable shimmer-like loading view.
+Widget _buildLoadingView({String? message}) {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(
+          width: 48,
+          height: 48,
+          child: CircularProgressIndicator(
+            color: AppTheme.yellow,
+            strokeWidth: 3,
+          ),
+        ),
+        if (message != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+        ],
+      ],
+    ),
+  );
 }
 
 class MainNavScreen extends StatefulWidget {
@@ -72,6 +229,21 @@ class _MainNavScreenState extends State<MainNavScreen>
           ? FirestoreService.instance.streamUser(authUser.uid)
           : const Stream.empty(),
       builder: (context, userSnap) {
+        if (userSnap.hasError) {
+          return Scaffold(
+            backgroundColor: AppTheme.background,
+            body: _buildErrorView(
+              error: userSnap.error,
+              onRetry: () => setState(() {}),
+            ),
+          );
+        }
+        if (userSnap.connectionState == ConnectionState.waiting && !userSnap.hasData) {
+          return Scaffold(
+            backgroundColor: AppTheme.background,
+            body: _buildLoadingView(message: 'Connecting...'),
+          );
+        }
         final currentUser = userSnap.data;
         return Scaffold(
           body: TabBarView(
@@ -314,10 +486,13 @@ class _MainNavScreenState extends State<MainNavScreen>
           stream: GroupService().getUserGroups(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+              return _buildErrorView(
+                error: snapshot.error,
+                onRetry: () => setState(() {}),
+              );
             }
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+            if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+              return _buildLoadingView(message: 'Connecting...');
             }
 
             final groups = snapshot.data ?? [];
@@ -715,6 +890,15 @@ class _HomeTabState extends State<_HomeTab>
           since: _getFilterStartDate(),
         ),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _buildErrorView(
+              error: snapshot.error,
+              onRetry: () => setState(() {}),
+            );
+          }
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            return _buildLoadingView(message: 'Connecting...');
+          }
           final expenses = snapshot.data ?? [];
           return Stack(
             children: [
@@ -813,28 +997,63 @@ class _HomeTabState extends State<_HomeTab>
                         ),
                       )
                     else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: expenses.length,
-                        itemBuilder: (context, i) {
-                          final exp = expenses[i];
-                          return ListTile(
-                            leading: const Icon(
-                              Icons.receipt_long_rounded,
-                              color: AppTheme.blue,
-                            ),
-                            title: Text(exp.title),
-                            subtitle: Text(
-                              '${exp.splitType} • ${getCurrencySymbol(currencyCode)}${(exp.shares[user.uid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
-                            ),
-                            trailing: Text(
-                              '${getCurrencySymbol(currencyCode)}${(exp.shares[user.uid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
-                              style: const TextStyle(
-                                color: AppTheme.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                      Builder(
+                        builder: (context) {
+                          // Compute per-group net balances
+                          final groupBalances = <String, double>{};
+                          for (var e in expenses) {
+                            final gId = e.groupId ?? '';
+                            groupBalances[gId] = (groupBalances[gId] ?? 0);
+                            // Credit payer
+                            if (e.payerId == user.uid) {
+                              groupBalances[gId] = groupBalances[gId]! + e.amount;
+                            }
+                            // Debit share
+                            final share = (e.shares[user.uid] as num?)?.toDouble() ?? 0;
+                            groupBalances[gId] = groupBalances[gId]! - share;
+                          }
+
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: expenses.length,
+                            itemBuilder: (context, i) {
+                              final exp = expenses[i];
+                              final gId = exp.groupId ?? '';
+                              final netBal = groupBalances[gId] ?? 0;
+                              final isSettled = netBal.abs() < 0.01;
+
+                              String label;
+                              Color labelColor;
+                              if (isSettled) {
+                                label = 'Settled ✅';
+                                labelColor = AppTheme.textSecondary;
+                              } else if (netBal > 0) {
+                                label = 'You are owed ${getCurrencySymbol(currencyCode)}${netBal.toStringAsFixed(0)}';
+                                labelColor = AppTheme.green;
+                              } else {
+                                label = 'You owe ${getCurrencySymbol(currencyCode)}${netBal.abs().toStringAsFixed(0)}';
+                                labelColor = AppTheme.red;
+                              }
+
+                              return ListTile(
+                                leading: const Icon(
+                                  Icons.receipt_long_rounded,
+                                  color: AppTheme.blue,
+                                ),
+                                title: Text(exp.title),
+                                subtitle: Text(
+                                  '${exp.splitType} • ${getCurrencySymbol(currencyCode)}${(exp.shares[user.uid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
+                                ),
+                                trailing: Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: labelColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -1167,13 +1386,29 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
         child: SizedBox(
           height: MediaQuery.of(context).size.height * 0.8,
           child: StreamBuilder<List<Group>>(
-            stream: GroupService().getUserGroups(),
+            stream: GroupService().getUserGroups().timeout(const Duration(seconds: 30)),
             builder: (context, snapshot) {
-              final groups = snapshot.data ?? [];
-
-              if (!snapshot.hasData) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      const Text('Could not load groups', style: TextStyle(color: AppTheme.textSecondary)),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
+              final groups = snapshot.data ?? [];
 
               if (groups.isEmpty) {
                 return Column(
@@ -1769,6 +2004,15 @@ class _ActivityTabState extends State<_ActivityTab> {
       body: StreamBuilder<List<Group>>(
         stream: GroupService().getUserGroups(),
         builder: (context, groupSnapshot) {
+          if (groupSnapshot.hasError) {
+            return _buildErrorView(
+              error: groupSnapshot.error,
+              onRetry: () => setState(() {}),
+            );
+          }
+          if (groupSnapshot.connectionState == ConnectionState.waiting && !groupSnapshot.hasData) {
+            return _buildLoadingView(message: 'Connecting...');
+          }
           final groups = groupSnapshot.data ?? [];
           final allGroups = [
             Group(
@@ -1793,6 +2037,15 @@ class _ActivityTabState extends State<_ActivityTab> {
               userFilterUid: _selectedUserId == 'All' ? null : _selectedUserId,
             ),
             builder: (context, expenseSnapshot) {
+              if (expenseSnapshot.hasError) {
+                return _buildErrorView(
+                  error: expenseSnapshot.error,
+                  onRetry: () => setState(() {}),
+                );
+              }
+              if (expenseSnapshot.connectionState == ConnectionState.waiting && !expenseSnapshot.hasData) {
+                return _buildLoadingView(message: 'Connecting...');
+              }
               final expenses = expenseSnapshot.data ?? [];
 
               // Local filtering for search and 'users' if not handled by stream fully
@@ -1811,19 +2064,23 @@ class _ActivityTabState extends State<_ActivityTab> {
               double owed = 0;
               double spent = 0;
 
+              final now = DateTime.now();
+
               for (var e in filtered) {
                 final myShare = e.shares[user.uid] ?? 0;
 
-                // My absolute personal "spent" is whatever my share was, regardless of who fronted the cash.
-                spent += myShare;
+                // Spent = only current month, only when I was the payer
+                if (e.payerId == user.uid &&
+                    e.createdAt.month == now.month &&
+                    e.createdAt.year == now.year) {
+                  spent += e.amount;
+                }
 
                 if (e.payerId == user.uid) {
-                  // I paid. Others owe me for the parts I covered for them.
                   if (e.status == 'owed') {
                     owed += (e.amount - myShare);
                   }
                 } else {
-                  // Someone else paid for me. I owe them my share.
                   if (e.status == 'owed') {
                     owe += myShare;
                   }
@@ -1848,46 +2105,52 @@ class _ActivityTabState extends State<_ActivityTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Summary cards
+                    // ─── FIXED: Summary cards ─────────────────────
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _buildSummaryCard('You Owe', owe.toInt(), AppTheme.red),
                         _buildSummaryCard(
-                          'You’re Owed',
+                          "You're Owed",
                           owed.toInt(),
                           AppTheme.green,
                         ),
                         _buildSummaryCard(
-                          'Spent',
+                          'Spent (This Month)',
                           spent.toInt(),
                           AppTheme.blue,
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // ─── FIXED: Simplify Debts button ─────────────
                     if (_selectedGroupId != 'All')
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          final suggestions = DebtSimplifier.simplifyDebts(
-                            filtered,
-                          );
-                          _showSimplificationModal(
-                            suggestions,
-                            widget.currentUser.currency,
-                          );
-                        },
-                        icon: const Icon(Icons.auto_graph),
-                        label: const Text('Simplify Debts'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.blue,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            final suggestions = DebtSimplifier.simplifyDebts(
+                              filtered,
+                            );
+                            _showSimplificationModal(
+                              suggestions,
+                              widget.currentUser.currency,
+                            );
+                          },
+                          icon: const Icon(Icons.auto_graph),
+                          label: const Text('Simplify Debts'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.blue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
-                    const SizedBox(height: 20),
+
+                    // ─── FIXED: Filters row ───────────────────────
                     Row(
                       children: [
                         Expanded(
@@ -1913,9 +2176,6 @@ class _ActivityTabState extends State<_ActivityTab> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // User Dropdown - populating from actual users would need fetching names.
-                        // For simplicity, we'll keep it simple or just show IDs if we don't have mapping yet.
-                        // Ideally we use a FutureBuilder to fetch names for participantIds.
                         Expanded(
                           child: FutureBuilder<List<AppUser>>(
                             future: FirestoreService.instance.getUsers(
@@ -1935,13 +2195,6 @@ class _ActivityTabState extends State<_ActivityTab> {
                                   ),
                                 ),
                               ];
-                              // Ensure selected is valid
-                              if (_selectedUserId != 'All' &&
-                                  !users.any((u) => u.uid == _selectedUserId)) {
-                                // If specific user not in list, maybe keep it or reset? Resetting is safer.
-                                // But strictly, FutureBuilder rebuilds might cause valid selection to be momentarily invalid.
-                                // We'll trust the logic.
-                              }
 
                               return DropdownButtonFormField<String>(
                                 value:
@@ -1961,6 +2214,8 @@ class _ActivityTabState extends State<_ActivityTab> {
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // ─── FIXED: Search ────────────────────────────
                     TextField(
                       controller: _searchController,
                       decoration: const InputDecoration(
@@ -1969,12 +2224,120 @@ class _ActivityTabState extends State<_ActivityTab> {
                       ),
                       onChanged: (val) => setState(() => _search = val),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
+
+                    // ─── SCROLLABLE: Balances + Activity list ─────
                     Expanded(
                       child: filtered.isEmpty
                           ? const Center(child: Text('No activity yet.'))
                           : ListView(
                               children: [
+                                // Balances (Who Owes Who)
+                                Builder(
+                                  builder: (context) {
+                                    final settlements = DebtSimplifier.simplifyDebts(filtered);
+                                    final mySettlements = settlements.where((s) =>
+                                      s.from == user.uid || s.to == user.uid
+                                    ).toList();
+
+                                    return Card(
+                                      color: AppTheme.card,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Row(
+                                              children: [
+                                                Icon(Icons.swap_horiz, color: AppTheme.yellow, size: 20),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  'Balances',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.textPrimary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            if (mySettlements.isEmpty)
+                                              const Center(
+                                                child: Padding(
+                                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                                  child: Text(
+                                                    'All settled 🎉',
+                                                    style: TextStyle(
+                                                      color: AppTheme.green,
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 15,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            else
+                                              ...mySettlements.map((s) {
+                                                final otherUid = s.from == user.uid ? s.to : s.from;
+                                                final isIOwe = s.from == user.uid;
+
+                                                return FutureBuilder<AppUser?>(
+                                                  future: FirestoreService.instance.getUser(otherUid),
+                                                  builder: (context, snap) {
+                                                    final otherName = snap.data?.name ?? 'Unknown';
+                                                    final currency = getCurrencySymbol(
+                                                      widget.currentUser.currency,
+                                                    );
+
+                                                    return Padding(
+                                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                            isIOwe
+                                                                ? Icons.arrow_upward_rounded
+                                                                : Icons.arrow_downward_rounded,
+                                                            color: isIOwe ? AppTheme.red : AppTheme.green,
+                                                            size: 18,
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: Text(
+                                                              isIOwe
+                                                                  ? 'You owe $otherName'
+                                                                  : '$otherName owes You',
+                                                              style: TextStyle(
+                                                                color: isIOwe ? AppTheme.red : AppTheme.green,
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            '$currency${s.amount.toStringAsFixed(0)}',
+                                                            style: TextStyle(
+                                                              color: isIOwe ? AppTheme.red : AppTheme.green,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 15,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                );
+                                              }),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Activity list grouped by date
                                 for (var date in grouped.keys)
                                   Column(
                                     crossAxisAlignment:
@@ -1994,7 +2357,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                                       ),
                                       ...grouped[date]!.map(
                                         (exp) =>
-                                            _buildExpenseCard(exp, user.uid, allGroups),
+                                            _buildExpenseCard(exp, user.uid, allGroups, filtered),
                                       ),
                                     ],
                                   ),
@@ -2011,7 +2374,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     );
   }
 
-  Widget _buildExpenseCard(Expense exp, String currentUserUid, List<Group> allGroups) {
+  Widget _buildExpenseCard(Expense exp, String currentUserUid, List<Group> allGroups, List<Expense> allExpenses) {
     final groupName = allGroups.firstWhere(
       (g) => g.id == exp.groupId,
       orElse: () => Group(id: '', name: 'Unknown', code: '', ownerId: '', createdAt: DateTime(0)),
@@ -2019,6 +2382,33 @@ class _ActivityTabState extends State<_ActivityTab> {
 
     final color =
         Colors.primaries[exp.groupId.hashCode % Colors.primaries.length];
+
+    // Compute net balance for this expense's group (skip settled expenses)
+    double netBalance = 0;
+    for (var e in allExpenses) {
+      if (e.groupId == exp.groupId && e.status != 'settled') {
+        if (e.payerId == currentUserUid) {
+          netBalance += e.amount;
+        }
+        final share = (e.shares[currentUserUid] as num?)?.toDouble() ?? 0;
+        netBalance -= share;
+      }
+    }
+    final isGroupSettled = netBalance.abs() < 0.01;
+
+    // Determine trailing label
+    String trailingLabel;
+    Color trailingColor;
+    if (isGroupSettled) {
+      trailingLabel = 'Settled ✅';
+      trailingColor = AppTheme.textSecondary;
+    } else if (netBalance > 0) {
+      trailingLabel = 'You are owed';
+      trailingColor = AppTheme.green;
+    } else {
+      trailingLabel = 'You owe';
+      trailingColor = AppTheme.red;
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -2058,11 +2448,11 @@ class _ActivityTabState extends State<_ActivityTab> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${getCurrencySymbol(widget.currentUser.currency)}${(exp.shares[currentUserUid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
+                    trailingLabel,
                     style: TextStyle(
-                      color: color,
+                      color: trailingColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 14,
                     ),
                   ),
                   // Reactions
@@ -2266,8 +2656,9 @@ class _ExpenseDetailsSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // RULE 1: Settle Up — only if current user owes money
-                  if (currentUser.uid != expense.payerId &&
+                  // RULE 1: Settle Up — only if NOT already settled AND current user owes money
+                  if (expense.status != 'settled' &&
+                      currentUser.uid != expense.payerId &&
                       ((expense.shares[currentUser.uid] as num?)?.toDouble() ?? 0) > 0)
                     SizedBox(
                       width: double.infinity,
@@ -2283,7 +2674,7 @@ class _ExpenseDetailsSheet extends StatelessWidget {
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          _showSimpleSettle(context, expense);
+                          _showSettlePaymentModal(context, expense);
                         },
                       ),
                     ),
@@ -2329,27 +2720,185 @@ class _ExpenseDetailsSheet extends StatelessWidget {
     );
   }
 
-  void _showSimpleSettle(BuildContext context, Expense exp) {
+  void _showSettlePaymentModal(BuildContext parentContext, Expense exp) {
+    final amount =
+        (exp.shares[currentUser.uid] as num?)?.toDouble() ?? 0;
+
+    showModalBottomSheet(
+      context: parentContext,
+      backgroundColor: AppTheme.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Settle Payment',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: const Icon(Icons.check_circle_outline,
+                      color: AppTheme.green, size: 32),
+                  title: const Text('Settle in App',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary)),
+                  subtitle: const Text(
+                      'Mark this expense as settled manually',
+                      style: TextStyle(color: AppTheme.textSecondary)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  tileColor: AppTheme.background,
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await FirestoreService.instance.updateExpenseStatus(
+                      exp.groupId!,
+                      exp.id,
+                      'settled',
+                    );
+                    if (parentContext.mounted) {
+                      ScaffoldMessenger.of(parentContext).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Settlement of ${getCurrencySymbol(currentUser.currency)}${amount.toStringAsFixed(0)} recorded!'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet,
+                      color: AppTheme.blue, size: 32),
+                  title: const Text('Pay via UPI',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary)),
+                  subtitle: const Text(
+                      'Pay using Google Pay, PhonePe, Paytm, etc.',
+                      style: TextStyle(color: AppTheme.textSecondary)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  tileColor: AppTheme.background,
+                  onTap: () async {
+                    print("🔥 Pay via UPI clicked");
+
+                    final receiverUid = exp.payerId;
+
+                    final receiverUser = await FirestoreService.instance.getUser(receiverUid);
+                    final receiverUpi = receiverUser?.upiId;
+                    final receiverName = receiverUser?.name ?? 'User';
+
+                    print("Receiver UPI: $receiverUpi");
+
+                    if (receiverUpi == null || receiverUpi.trim().isEmpty) {
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text("$receiverName hasn't added a UPI ID"),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    final upiAmount = (exp.shares[currentUser.uid] as num?)?.toDouble() ?? 0;
+
+                    final uri = Uri.parse(
+                      "upi://pay?pa=${receiverUpi.trim()}&pn=${Uri.encodeComponent(receiverName)}&am=$upiAmount&cu=INR&tn=Spendy",
+                    );
+
+                    print("🚀 Launching UPI: $uri");
+
+                    try {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } catch (e) {
+                      print("❌ Launch failed: $e");
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "No UPI app found. Please install Google Pay or PhonePe.",
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPaymentConfirmationDialog(BuildContext parentContext, Expense exp, String receiverUpi, String receiverName, double amount) {
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Settle Up'),
-        content: const Text('Mark as settled?'),
+      context: parentContext,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Confirm Payment'),
+        content: const Text('Did you complete the payment?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
+              Navigator.pop(ctx);
               await FirestoreService.instance.updateExpenseStatus(
                 exp.groupId!,
                 exp.id,
                 'settled',
               );
-              if (context.mounted) Navigator.pop(context);
+              if (parentContext.mounted) {
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Settlement of ${getCurrencySymbol(currentUser.currency)}${amount.toStringAsFixed(0)} recorded!'),
+                  ),
+                );
+              }
             },
-            child: const Text('Confirm'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.green,
+                foregroundColor: Colors.white),
+            child: const Text('Yes'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await launchUPI(
+                context: parentContext,
+                upiId: receiverUpi,
+                name: receiverName,
+                amount: amount,
+              );
+              if (parentContext.mounted) {
+                _showPaymentConfirmationDialog(parentContext, exp, receiverUpi, receiverName, amount);
+              }
+            },
+            child: const Text('Open Again'),
           ),
         ],
       ),
@@ -2366,6 +2915,7 @@ class _ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<_ProfileTab> {
+  String? upiError;
   final Map<String, String> _currencies = {
     'INR': '₹  Indian Rupee',
     'USD': r'$  US Dollar',
@@ -2665,11 +3215,72 @@ class _ProfileTabState extends State<_ProfileTab> {
               user.email,
               style: const TextStyle(color: AppTheme.textSecondary),
             ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: TextFormField(
+                initialValue: user.upiId,
+                decoration: InputDecoration(
+                  labelText: 'UPI ID',
+                  hintText: 'example@oksbi',
+                  errorText: upiError,
+                  prefixIcon: const Icon(Icons.payment, color: AppTheme.yellow),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (value) async {
+                  bool isValidUpi(String upi) {
+                    return RegExp(r'^[\w.\-]{2,}@[a-zA-Z]{3,}$').hasMatch(upi);
+                  }
+                  
+                  final upi = value.trim();
+                  if (!isValidUpi(upi) && upi.isNotEmpty) {
+                    setState(() {
+                      upiError = "Enter a valid UPI ID";
+                    });
+                    return;
+                  }
+
+                  setState(() {
+                    upiError = null;
+                  });
+
+                  await FirestoreService.instance
+                      .updateUserUpiId(user.uid, upi);
+                },
+              ),
+            ),
             const SizedBox(height: 32),
             // Stats from streams
             StreamBuilder<List<Expense>>(
-              stream: FirestoreService.instance.streamUserExpenses(user.uid),
+              stream: FirestoreService.instance.streamUserExpenses(user.uid).timeout(const Duration(seconds: 30)),
               builder: (context, expSnap) {
+                if (expSnap.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          const Icon(Icons.wifi_off, size: 40, color: Colors.grey),
+                          const SizedBox(height: 8),
+                          const Text('Could not load stats', style: TextStyle(color: AppTheme.textSecondary)),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () => setState(() {}),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                if (expSnap.connectionState == ConnectionState.waiting && !expSnap.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
                 final expenses = expSnap.data ?? [];
                 double spent = 0;
                 double owe = 0;

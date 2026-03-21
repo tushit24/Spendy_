@@ -129,11 +129,13 @@ class ExpenseSummaryService {
       );
 
       if (totalOwed > 0) {
-        await _localService.showSettlementReminderNotification(
+        await _localService.scheduleSettlementReminderWithValue(
           totalOwed: totalOwed.toInt(),
           symbol: symbol,
+          toName: 'your group members',
         );
       } else {
+        await _localService.cancelSettlementReminder();
         debugPrint(
           '✅ [ExpenseSummaryService] User owes nothing — no reminder sent.',
         );
