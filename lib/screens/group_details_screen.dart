@@ -39,6 +39,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   AppUser? currentUser;
   Group? group;
 
+  /// Tracks expense IDs already cleaned up to prevent infinite Firestore writes.
+  final Set<String> _cleanedExpenseIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +54,23 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
       setState(() {
         currentUser = userSnap;
       });
+    }
+  }
+
+  // ─── Legacy cleanup: fix old expenses with all-zero shares but wrong status ──
+  void _cleanupLegacyExpenses(List<Expense> expenses) {
+    for (final exp in expenses) {
+      if (_cleanedExpenseIds.contains(exp.id)) continue;
+      final allZero = exp.shares.values.every((v) => v == 0);
+      if (allZero && !exp.isSettled) {
+        _cleanedExpenseIds.add(exp.id);
+        // Fire-and-forget; stream will re-emit automatically
+        FirestoreService.instance.updateExpenseStatus(
+          exp.groupId,
+          exp.id,
+          'settled',
+        );
+      }
     }
   }
 
@@ -998,6 +1018,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               );
             }
             final expenses = expenseSnapshot.data ?? [];
+
+            // One-time cleanup of legacy expenses with zeroed-out shares
+            _cleanupLegacyExpenses(expenses);
 
             return Scaffold(
               backgroundColor: AppTheme.background,
