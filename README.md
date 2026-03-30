@@ -26,7 +26,10 @@
 - **Real-time Synchronization:** Built on Firebase Firestore for instantaneous updates across all devices.
 - **Secure Authentication:** Secure and quick login using Google Sign-In and Firebase Auth.
 - **Push Notifications:** Never miss an update when an expense is added, updated, or settled up.
-- **Media & Receipts:** Attach receipt images using `image_picker` and `firebase_storage`.
+- **UPI Integration 🇮🇳:** The simplest way to settle up! 
+  - Automatically deep-links to your installed UPI apps (GPay, PhonePe, Paytm, etc).
+  - Pre-fills the exact amount owed and the recipient's UPI ID.
+  - Settle debts with a frictionless one-tap payment experience.
 - **Delightful UI:** Enjoy a premium, smooth, and stunning Flutter interface with micro-animations like Confetti!
 
 ---
