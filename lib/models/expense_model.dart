@@ -13,7 +13,15 @@ class Expense {
   final String status; // 'owed' / 'settled'
 
   /// Central helper — use this instead of raw `status == 'settled'` checks.
-  bool get isSettled => status == 'settled';
+  bool get isSettled {
+    return status.toLowerCase().trim() == 'settled';
+  }
+
+  /// Returns true if this expense is a settlement (offsetting) transaction.
+  bool get isSettlement {
+    return title.toLowerCase().trim() == 'settlement' ||
+        splitType.toLowerCase().trim() == 'settlement';
+  }
 
   Expense({
     required this.id,
@@ -41,7 +49,7 @@ class Expense {
         (k, v) => MapEntry(k, (v as num).toDouble()),
       ),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      status: data['status'] as String? ?? 'owed',
+      status: (data['status'] as String? ?? 'owed').toLowerCase().trim(),
     );
   }
 

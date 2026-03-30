@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/user_model.dart';
 import '../models/group_model.dart';
@@ -192,11 +193,14 @@ class FirestoreService {
       final currencyCode = userDoc.data()?['currency'] as String? ?? 'INR';
       final symbol = _getSymbol(currencyCode);
       
-      final String title =
-          '$payerName added $symbol${expense.amount.toStringAsFixed(0)} in $groupName';
-      final String body = expense.title.isNotEmpty
-          ? '${expense.title} • Split ${expense.splitType}'
-          : 'New group expense';
+      final String title = expense.isSettlement
+          ? '$payerName settled $symbol${expense.amount.toStringAsFixed(0)} in $groupName'
+          : '$payerName added $symbol${expense.amount.toStringAsFixed(0)} in $groupName';
+      final String body = expense.isSettlement
+          ? 'Settlement'
+          : (expense.title.isNotEmpty
+              ? '${expense.title} • Split ${expense.splitType}'
+              : 'New group expense');
 
       await _notifyGroupMembers(
         groupId: expense.groupId!,
@@ -271,72 +275,70 @@ class FirestoreService {
         );
   }
 
+  Future<List<Expense>> getExpensesOnce(String groupId) async {
+    final snapshot = await _db
+        .collection('expenses')
+        .where('groupId', isEqualTo: groupId)
+        .get();
+        
+    return snapshot.docs
+        .map((d) => Expense.fromMap(d.id, d.data()))
+        .toList();
+  }
+
+
   Future<void> deleteExpense(String expenseId) {
     return _db.collection('expenses').doc(expenseId).delete();
   }
 
-  Future<void> updateExpenseStatus(String groupId, String expenseId, String status) async {
-    await _db.collection('expenses').doc(expenseId).update({'status': status});
+  Future<void> updateExpenseShares(String expenseId, Map<String, double> shares) async {
+    await _db.collection('expenses').doc(expenseId).update({'shares': shares});
+  }
 
-    final doc = await _db.collection('expenses').doc(expenseId).get();
-    if (doc.exists && doc.data() != null) {
-      final expense = Expense.fromMap(doc.id, doc.data()!);
-      if (expense.groupId != null && expense.groupId!.isNotEmpty) {
-        String actorUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-        if (status == 'settled') {
-          String settledByName = 'Someone';
-          String groupName = 'a group';
-
-          try {
-            if (actorUid.isNotEmpty) {
-              final userDoc = await _db.collection('users').doc(actorUid).get();
-              if (userDoc.exists)
-                settledByName = userDoc.data()?['name'] ?? 'Someone';
-            }
-            final groupDoc = await _db
-                .collection('groups')
-                .doc(expense.groupId)
-                .get();
-            if (groupDoc.exists)
-              groupName = groupDoc.data()?['name'] ?? 'a group';
-          } catch (e) {
-            // Fallback
-          }
-
-          final bool isCurrentUser =
-              (actorUid == FirebaseAuth.instance.currentUser?.uid &&
-              actorUid.isNotEmpty);
-          final userDoc = await _db.collection('users').doc(actorUid).get();
-          final currencyCode = userDoc.data()?['currency'] as String? ?? 'INR';
-          final symbol = _getSymbol(currencyCode);
-
-          final String title = isCurrentUser
-              ? 'You settled $symbol${expense.amount.toStringAsFixed(0)} in $groupName'
-              : '$settledByName settled $symbol${expense.amount.toStringAsFixed(0)} in $groupName';
-
-          final String body = expense.title.isNotEmpty
-              ? '${expense.title} • Marked as settled'
-              : 'Expense marked as settled';
-
-          await _notifyGroupMembers(
-            groupId: expense.groupId!,
-            title: title,
-            body: body,
-            excludeUid: actorUid.isNotEmpty ? actorUid : expense.payerId,
-          );
-        } else {
-          // Fallback for other status updates
-          await _notifyGroupMembers(
-            groupId: expense.groupId!,
-            title: 'Expense Updated',
-            body: 'An expense was marked as $status',
-            excludeUid: actorUid.isNotEmpty ? actorUid : expense.payerId,
-          );
+  /// ONE-TIME FIX SCRIPT: Restores original shares for settled expenses whose shares were zeroed out.
+  Future<void> restoreSettledShares() async {
+    final snapshot = await _db.collection('expenses').where('status', isEqualTo: 'settled').get();
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final shares = data['shares'] as Map<String, dynamic>? ?? {};
+      
+      // Check if shares are zeroed out (meaning it was corrupted by old settlement logic)
+      final allZeros = shares.values.every((v) => (v as num).toDouble().abs() < 0.01);
+      
+      if (allZeros && shares.isNotEmpty) {
+        final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+        final participants = List<String>.from(data['participants'] ?? const []);
+        if (participants.isNotEmpty) {
+          final equalShare = amount / participants.length;
+          final restoredShares = {for (var uid in participants) uid: equalShare};
+          await updateExpenseShares(doc.id, restoredShares);
+          print("✅ Restored shares for expense ${doc.id}");
         }
       }
     }
+    print("🎉 restoreSettledShares complete!");
   }
+
+  /// Marks ALL expenses in a group as settled and zeros out shares.
+  /// Call this when the group becomes fully settled.
+  Future<void> settleAllExpensesInGroup(String groupId) async {
+    final snapshot = await _db
+        .collection('expenses')
+        .where('groupId', isEqualTo: groupId)
+        .get();
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final currentStatus = (data['status'] as String? ?? '').toLowerCase().trim();
+      if (currentStatus == 'settled') continue; // skip already settled
+
+      await doc.reference.update({
+        'status': 'settled',
+      });
+    }
+  }
+
+
 
   // REACTIONS: groups/{groupId}/expenses/{id}/reactions/{uid}
 
@@ -421,13 +423,19 @@ class FirestoreService {
           .toList();
 
       if (tokens.isNotEmpty) {
-        await NotificationService().sendGroupNotification(
-          groupId: groupId,
-          title: title,
-          body: body,
-          excludeUid: excludeUid,
-          targetTokens: tokens,
-        );
+        Future.microtask(() async {
+          try {
+            await NotificationService().sendGroupNotification(
+              groupId: groupId,
+              title: title,
+              body: body,
+              excludeUid: excludeUid,
+              targetTokens: tokens,
+            );
+          } catch (e) {
+            debugPrint("Notification failed: $e");
+          }
+        });
       }
     } catch (e) {
       // Don't crash main flow

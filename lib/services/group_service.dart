@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/group_model.dart';
 import '../models/user_model.dart';
 import 'notification_service.dart';
@@ -138,9 +139,11 @@ class GroupService {
     final groupDoc = await groupRef.get();
 
     if (!groupDoc.exists) throw Exception('Group not found');
-    if (groupDoc['createdBy'] != user.uid) {
+    if (groupDoc['ownerId'] != user.uid) {
       throw Exception('Only the admin can delete the group');
     }
+
+    print("GROUP DELETED");
 
     // NOTE: Firestore does not support recursive delete in client SDK efficiently.
     // For a college project, we will manually delete subcollections fetched.
@@ -307,13 +310,19 @@ class GroupService {
           .toList();
 
       if (tokens.isNotEmpty) {
-        await NotificationService().sendGroupNotification(
-          groupId: groupId,
-          title: title,
-          body: body,
-          excludeUid: excludeUid,
-          targetTokens: tokens,
-        );
+        Future.microtask(() async {
+          try {
+            await NotificationService().sendGroupNotification(
+              groupId: groupId,
+              title: title,
+              body: body,
+              excludeUid: excludeUid,
+              targetTokens: tokens,
+            );
+          } catch (e) {
+            debugPrint("Notification failed: $e");
+          }
+        });
       }
     } catch (e) {
       // Don't crash the main flow if notification fails

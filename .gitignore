@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Custom temporary, analysis, and build error logs
+*analyze*.txt
+build_*.txt
+crash_*.txt
+dart_*.txt
+diff*.txt
+out*.txt
+temp_*.txt
+cursor_check_*.md
+firebase-debug*.log
+firebase-debug*.txt
+errors*.log

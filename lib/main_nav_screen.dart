@@ -10,7 +10,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Added for FirebaseAuth
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/group_service.dart'; // Added for GroupService
@@ -20,8 +20,8 @@ import 'models/expense_model.dart';
 import 'models/user_model.dart';
 import 'services/notification_service.dart';
 import 'services/upi_service.dart';
-import 'utils/debt_simplification.dart';
 import 'screens/group_details_screen.dart';
+import 'utils/settlement_utils.dart';
 
 String getCurrencySymbol(String currencyCode) {
   switch (currencyCode) {
@@ -690,6 +690,7 @@ class _MainNavScreenState extends State<MainNavScreen>
   }
 
   void _confirmDeleteGroup(String groupId, String groupName) {
+    print("DELETE CLICKED");
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -842,7 +843,7 @@ class _HomeTabState extends State<_HomeTab>
         backgroundColor: AppTheme.card,
         title: const Text('Reset Counter?'),
         content: const Text(
-          'Start tracking Total Spent from today?\n\nAll previous expenses will be excluded from the counter.',
+          'Start tracking You Paid from today?\n\nAll previous expenses will be excluded from the counter.',
         ),
         actions: [
           TextButton(
@@ -885,10 +886,7 @@ class _HomeTabState extends State<_HomeTab>
         elevation: 0,
       ),
       body: StreamBuilder<List<Expense>>(
-        stream: FirestoreService.instance.streamUserExpensesFiltered(
-          user.uid,
-          since: _getFilterStartDate(),
-        ),
+        stream: FirestoreService.instance.streamUserExpenses(user.uid),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return _buildErrorView(
@@ -900,6 +898,13 @@ class _HomeTabState extends State<_HomeTab>
             return _buildLoadingView(message: 'Connecting...');
           }
           final expenses = snapshot.data ?? [];
+          print("HOME EXPENSE COUNT: ${expenses.length}");
+
+          // Apply time filter locally for display (same base data as Activity/Profile)
+          final filterDate = _getFilterStartDate();
+          final displayExpenses = filterDate != null
+              ? expenses.where((e) => !e.createdAt.isBefore(filterDate)).toList()
+              : expenses;
           return Stack(
             children: [
               SingleChildScrollView(
@@ -969,8 +974,8 @@ class _HomeTabState extends State<_HomeTab>
                     ),
                     const SizedBox(height: 12),
                     // Expense chart
-                    if (expenses.isNotEmpty)
-                      _buildChartCard(expenses)
+                    if (displayExpenses.isNotEmpty)
+                      _buildChartCard(displayExpenses)
                     else
                       const Card(
                         color: AppTheme.card,
@@ -989,7 +994,7 @@ class _HomeTabState extends State<_HomeTab>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (expenses.isEmpty)
+                    if (displayExpenses.isEmpty)
                       const Center(
                         child: Padding(
                           padding: EdgeInsets.only(top: 20),
@@ -999,41 +1004,44 @@ class _HomeTabState extends State<_HomeTab>
                     else
                       Builder(
                         builder: (context) {
-                          // Compute per-group net balances
-                          final groupBalances = <String, double>{};
-                          for (var e in expenses) {
-                            final gId = e.groupId ?? '';
-                            groupBalances[gId] = (groupBalances[gId] ?? 0);
-                            // Credit payer
-                            if (e.payerId == user.uid) {
-                              groupBalances[gId] = groupBalances[gId]! + e.amount;
-                            }
-                            // Debit share
-                            final share = (e.shares[user.uid] as num?)?.toDouble() ?? 0;
-                            groupBalances[gId] = groupBalances[gId]! - share;
-                          }
-
                           return ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: expenses.length,
+                            itemCount: displayExpenses.length,
                             itemBuilder: (context, i) {
-                              final exp = expenses[i];
-                              final gId = exp.groupId ?? '';
-                              final netBal = groupBalances[gId] ?? 0;
-                              final isSettled = netBal.abs() < 0.01;
+                              final exp = displayExpenses[i];
+                              final myShare = (exp.shares[user.uid] as num?)?.toDouble() ?? 0.0;
+                              final currentUserId = user.uid;
 
                               String label;
                               Color labelColor;
-                              if (isSettled) {
-                                label = 'Settled ✅';
-                                labelColor = AppTheme.textSecondary;
-                              } else if (netBal > 0) {
-                                label = 'You are owed ${getCurrencySymbol(currencyCode)}${netBal.toStringAsFixed(0)}';
+
+                              if (exp.isSettled == true || exp.isSettlement) {
+                                final rounded = SettlementUtils.round2(exp.amount);
+                                if (exp.isSettlement) {
+                                  label = 'Settled ${getCurrencySymbol(currencyCode)}${rounded.toStringAsFixed(0)}';
+                                  labelColor = AppTheme.green;
+                                } else {
+                                  label = 'Settled ✅';
+                                  labelColor = AppTheme.textSecondary;
+                                }
+                              } else if (exp.payerId == currentUserId) {
+                                double totalOwedToYou = 0;
+                                exp.shares.forEach((userId, share) {
+                                  if (userId != currentUserId) {
+                                    totalOwedToYou += (share as num).toDouble();
+                                  }
+                                });
+                                final rounded = SettlementUtils.round2(totalOwedToYou);
+                                label = 'You are owed ${getCurrencySymbol(currencyCode)}${rounded.toStringAsFixed(0)}';
                                 labelColor = AppTheme.green;
-                              } else {
-                                label = 'You owe ${getCurrencySymbol(currencyCode)}${netBal.abs().toStringAsFixed(0)}';
+                              } else if (exp.shares.containsKey(currentUserId)) {
+                                final rounded = SettlementUtils.round2(myShare);
+                                label = 'You owe ${getCurrencySymbol(currencyCode)}${rounded.toStringAsFixed(0)}';
                                 labelColor = AppTheme.red;
+                              } else {
+                                label = 'Not involved';
+                                labelColor = AppTheme.textSecondary;
                               }
 
                               return ListTile(
@@ -1043,7 +1051,7 @@ class _HomeTabState extends State<_HomeTab>
                                 ),
                                 title: Text(exp.title),
                                 subtitle: Text(
-                                  '${exp.splitType} • ${getCurrencySymbol(currencyCode)}${(exp.shares[user.uid] as num?)?.toDouble().toStringAsFixed(0) ?? '0'}',
+                                  '${exp.splitType} • ${getCurrencySymbol(currencyCode)}${myShare.toStringAsFixed(0)}',
                                 ),
                                 trailing: Text(
                                   label,
@@ -1104,15 +1112,22 @@ class _HomeTabState extends State<_HomeTab>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Total Spent',
+                      'You Paid',
                       style: TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 16,
                       ),
                     ),
+                    const Text(
+                      'Excludes settlements',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 10,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
-                      '${getCurrencySymbol(currencyCode)}${expenses.fold(0.0, (a, b) => a + (b.shares[authUid] ?? 0)).toStringAsFixed(0)}',
+                      '${getCurrencySymbol(currencyCode)}${SettlementUtils.calculateTotalSpent(expenses, authUid).toStringAsFixed(0)}',
                       style: const TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 32,
@@ -1208,8 +1223,8 @@ class _HomeTabState extends State<_HomeTab>
   ) {
     final Map<String, double> groupTotals = {};
     for (var exp in expenses) {
-      final myShare = exp.shares[uid] ?? 0.0;
-      if (myShare <= 0) continue;
+      if (exp.isSettlement) continue; // Settlements are not spending
+      if (exp.payerId != uid) continue; // Only what user PAID
 
       String group;
       if (_chartMode == 'Category') {
@@ -1235,7 +1250,7 @@ class _HomeTabState extends State<_HomeTab>
       } else {
         group = exp.splitType;
       }
-      groupTotals[group] = (groupTotals[group] ?? 0) + myShare;
+      groupTotals[group] = (groupTotals[group] ?? 0) + exp.amount;
     }
 
     final keys = groupTotals.keys.toList();
@@ -1730,8 +1745,10 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
     Map<String, double> shares = {};
 
     if (splitType == 'Equally') {
-      final share = amount / selectedMemberIds.length;
-      for (var uid in selectedMemberIds) shares[uid] = share;
+      final equalShare = amount / selectedMemberIds.length;
+      shares = {
+        for (var uid in selectedMemberIds) uid: equalShare
+      };
     } else {
       double sum = 0;
       for (var uid in selectedMemberIds) {
@@ -1765,6 +1782,10 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
       createdAt: DateTime.now(),
       status: 'owed',
     );
+
+    print("🔥 Creating expense with shares: $shares");
+    print("🔥 selectedMemberIds: $selectedMemberIds");
+    print("🔥 splitType: $splitType, amount: $amount");
 
     setState(() => _isSaving = true);
     try {
@@ -1840,7 +1861,7 @@ class _ActivityTabState extends State<_ActivityTab> {
       builder: (context) {
         return _ExpenseDetailsSheet(
           expense: exp,
-          currentUser: widget.currentUser,
+          currentUser: widget.currentUser!,
           groupName: groupName,
           groupOwnerId: groupOwnerId,
         );
@@ -1868,127 +1889,7 @@ class _ActivityTabState extends State<_ActivityTab> {
     );
   }
 
-  void _showSimplificationModal(
-    List<DebtMatch> suggestions,
-    String currencyCode,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: AppTheme.card,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Debt Simplification',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Optimized settlement suggestions for the selected group:',
-                style: TextStyle(color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              if (suggestions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(child: Text('All debts are settled!')),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: suggestions.length,
-                  separatorBuilder: (_, __) => const Divider(),
-                  itemBuilder: (context, index) {
-                    final suggestion = suggestions[index];
-                    return FutureBuilder<List<AppUser>>(
-                      future: FirestoreService.instance.getUsers([
-                        suggestion.from,
-                        suggestion.to,
-                      ]),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final users = snapshot.data!;
-                        final fromUser = users.firstWhere(
-                          (u) => u.uid == suggestion.from,
-                          orElse: () => AppUser(
-                            uid: suggestion.from,
-                            email: '',
-                            name: 'Unknown',
-                            currency: 'INR',
-                            createdAt: DateTime.now(),
-                          ),
-                        );
-                        final toUser = users.firstWhere(
-                          (u) => u.uid == suggestion.to,
-                          orElse: () => AppUser(
-                            uid: suggestion.to,
-                            email: '',
-                            name: 'Unknown',
-                            currency: 'INR',
-                            createdAt: DateTime.now(),
-                          ),
-                        );
-
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            backgroundColor: AppTheme.blue.withOpacity(0.1),
-                            child: const Icon(
-                              Icons.payment,
-                              color: AppTheme.blue,
-                            ),
-                          ),
-                          title: Text(
-                            '${fromUser.name} suggests to pay ${toUser.name}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          trailing: Text(
-                            '${getCurrencySymbol(currencyCode)}${suggestion.amount.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              color: AppTheme.blue,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
+          // Removed Simplification modal
   @override
   Widget build(BuildContext context) {
     final user = widget.currentUser; // Changed to widget.currentUser
@@ -2031,11 +1932,7 @@ class _ActivityTabState extends State<_ActivityTab> {
           }
 
           return StreamBuilder<List<Expense>>(
-            stream: FirestoreService.instance.streamFilteredExpenses(
-              uid: user.uid,
-              groupId: _selectedGroupId == 'All' ? null : _selectedGroupId,
-              userFilterUid: _selectedUserId == 'All' ? null : _selectedUserId,
-            ),
+            stream: FirestoreService.instance.streamUserExpenses(user.uid),
             builder: (context, expenseSnapshot) {
               if (expenseSnapshot.hasError) {
                 return _buildErrorView(
@@ -2046,57 +1943,45 @@ class _ActivityTabState extends State<_ActivityTab> {
               if (expenseSnapshot.connectionState == ConnectionState.waiting && !expenseSnapshot.hasData) {
                 return _buildLoadingView(message: 'Connecting...');
               }
-              final expenses = expenseSnapshot.data ?? [];
+              // ── FULL DATASET (for summary cards — never filtered) ──
+              final allExpenses = expenseSnapshot.data ?? [];
 
-              // Local filtering for search and 'users' if not handled by stream fully
-              final filtered = expenses.where((e) {
-                final searchMatch =
-                    _search.isEmpty ||
-                    e.title.toLowerCase().contains(_search.toLowerCase());
-                // userFilterUid in stream handles participation, but we might want precise payer filtering or such.
-                // For now, streamFilteredExpenses logic:
-                // if userFilterUid provided, it checks if that user is participant.
-                return searchMatch;
+              // ── Summary from FULL unfiltered list (single source of truth) ──
+              final owe = SettlementUtils.getUserOwe(user.uid, allExpenses);
+              final owed = SettlementUtils.getUserOwed(user.uid, allExpenses);
+              final spent = SettlementUtils.getMonthlySpending(allExpenses, user.uid);
+
+              // ── FILTERED list (for display list only) ──
+              final displayExpenses = allExpenses.where((e) {
+                // Must involve current user
+                if (e.payerId != user.uid && !e.participants.contains(user.uid)) return false;
+                // Group filter
+                if (_selectedGroupId != 'All' && e.groupId != _selectedGroupId) return false;
+                // User filter
+                if (_selectedUserId != 'All' &&
+                    e.payerId != _selectedUserId &&
+                    !e.participants.contains(_selectedUserId)) return false;
+                // Search filter
+                if (_search.isNotEmpty &&
+                    !e.title.toLowerCase().contains(_search.toLowerCase())) return false;
+                return true;
               }).toList();
 
-              // Calculate Summary
-              double owe = 0;
-              double owed = 0;
-              double spent = 0;
-
-              final now = DateTime.now();
-
-              for (var e in filtered) {
-                final myShare = e.shares[user.uid] ?? 0;
-
-                // Spent = only current month, only when I was the payer
-                if (e.payerId == user.uid &&
-                    e.createdAt.month == now.month &&
-                    e.createdAt.year == now.year) {
-                  spent += e.amount;
-                }
-
-                if (e.payerId == user.uid) {
-                  if (e.status == 'owed') {
-                    owed += (e.amount - myShare);
-                  }
-                } else {
-                  if (e.status == 'owed') {
-                    owe += myShare;
-                  }
-                }
-              }
+              // ── DEBUG ──
+              print("ALL EXPENSE COUNT: ${allExpenses.length}");
+              print("DISPLAY EXPENSE COUNT: ${displayExpenses.length}");
+              print("OWE: $owe | OWED: $owed | SPENT: $spent");
 
               // Group expenses by date
               final grouped = <String, List<Expense>>{};
-              for (var exp in filtered) {
+              for (var exp in displayExpenses) {
                 final dateKey = _formatDate(exp.createdAt);
                 grouped.putIfAbsent(dateKey, () => []).add(exp);
               }
 
               // Extract unique participants for User Filter
               // This is a bit heavy, but fine for small data
-              final Set<String> participantIds = filtered
+              final Set<String> participantIds = displayExpenses
                   .expand((e) => e.participants)
                   .toSet();
 
@@ -2116,39 +2001,13 @@ class _ActivityTabState extends State<_ActivityTab> {
                           AppTheme.green,
                         ),
                         _buildSummaryCard(
-                          'Spent (This Month)',
+                          'You Paid (This Month)',
                           spent.toInt(),
                           AppTheme.blue,
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-
-                    // ─── FIXED: Simplify Debts button ─────────────
-                    if (_selectedGroupId != 'All')
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            final suggestions = DebtSimplifier.simplifyDebts(
-                              filtered,
-                            );
-                            _showSimplificationModal(
-                              suggestions,
-                              widget.currentUser.currency,
-                            );
-                          },
-                          icon: const Icon(Icons.auto_graph),
-                          label: const Text('Simplify Debts'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.blue,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
 
                     // ─── FIXED: Filters row ───────────────────────
                     Row(
@@ -2228,114 +2087,11 @@ class _ActivityTabState extends State<_ActivityTab> {
 
                     // ─── SCROLLABLE: Balances + Activity list ─────
                     Expanded(
-                      child: filtered.isEmpty
+                      child: displayExpenses.isEmpty
                           ? const Center(child: Text('No activity yet.'))
                           : ListView(
                               children: [
-                                // Balances (Who Owes Who)
-                                Builder(
-                                  builder: (context) {
-                                    final settlements = DebtSimplifier.simplifyDebts(filtered);
-                                    final mySettlements = settlements.where((s) =>
-                                      s.from == user.uid || s.to == user.uid
-                                    ).toList();
 
-                                    return Card(
-                                      color: AppTheme.card,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Row(
-                                              children: [
-                                                Icon(Icons.swap_horiz, color: AppTheme.yellow, size: 20),
-                                                SizedBox(width: 8),
-                                                Text(
-                                                  'Balances',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppTheme.textPrimary,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 12),
-                                            if (mySettlements.isEmpty)
-                                              const Center(
-                                                child: Padding(
-                                                  padding: EdgeInsets.symmetric(vertical: 8),
-                                                  child: Text(
-                                                    'All settled 🎉',
-                                                    style: TextStyle(
-                                                      color: AppTheme.green,
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 15,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                            else
-                                              ...mySettlements.map((s) {
-                                                final otherUid = s.from == user.uid ? s.to : s.from;
-                                                final isIOwe = s.from == user.uid;
-
-                                                return FutureBuilder<AppUser?>(
-                                                  future: FirestoreService.instance.getUser(otherUid),
-                                                  builder: (context, snap) {
-                                                    final otherName = snap.data?.name ?? 'Unknown';
-                                                    final currency = getCurrencySymbol(
-                                                      widget.currentUser.currency,
-                                                    );
-
-                                                    return Padding(
-                                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(
-                                                            isIOwe
-                                                                ? Icons.arrow_upward_rounded
-                                                                : Icons.arrow_downward_rounded,
-                                                            color: isIOwe ? AppTheme.red : AppTheme.green,
-                                                            size: 18,
-                                                          ),
-                                                          const SizedBox(width: 8),
-                                                          Expanded(
-                                                            child: Text(
-                                                              isIOwe
-                                                                  ? 'You owe $otherName'
-                                                                  : '$otherName owes You',
-                                                              style: TextStyle(
-                                                                color: isIOwe ? AppTheme.red : AppTheme.green,
-                                                                fontWeight: FontWeight.w500,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            '$currency${s.amount.toStringAsFixed(0)}',
-                                                            style: TextStyle(
-                                                              color: isIOwe ? AppTheme.red : AppTheme.green,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 15,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  },
-                                                );
-                                              }),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 10),
 
                                 // Activity list grouped by date
                                 for (var date in grouped.keys)
@@ -2355,12 +2111,12 @@ class _ActivityTabState extends State<_ActivityTab> {
                                           ),
                                         ),
                                       ),
-                                      ...grouped[date]!.map(
-                                        (exp) =>
-                                            _buildExpenseCard(exp, user.uid, allGroups, filtered),
-                                      ),
-                                    ],
-                                  ),
+                                        ...grouped[date]!.map(
+                                          (exp) =>
+                                              _buildExpenseCard(exp),
+                                        ),
+                                      ],
+                                    ),
                               ],
                             ),
                     ),
@@ -2374,40 +2130,47 @@ class _ActivityTabState extends State<_ActivityTab> {
     );
   }
 
-  Widget _buildExpenseCard(Expense exp, String currentUserUid, List<Group> allGroups, List<Expense> allExpenses) {
-    final groupName = allGroups.firstWhere(
-      (g) => g.id == exp.groupId,
-      orElse: () => Group(id: '', name: 'Unknown', code: '', ownerId: '', createdAt: DateTime(0)),
-    ).name;
+  Widget _buildExpenseCard(Expense exp) {
+    final currentUserId = widget.currentUser.uid;
+    final currencySymbol = getCurrencySymbol(widget.currentUser.currency);
 
-    final color =
-        Colors.primaries[exp.groupId.hashCode % Colors.primaries.length];
-
-    // Compute net balance for this expense's group (skip settled expenses)
-    double netBalance = 0;
-    for (var e in allExpenses) {
-      if (e.groupId == exp.groupId && e.status != 'settled') {
-        if (e.payerId == currentUserUid) {
-          netBalance += e.amount;
-        }
-        final share = (e.shares[currentUserUid] as num?)?.toDouble() ?? 0;
-        netBalance -= share;
-      }
-    }
-    final isGroupSettled = netBalance.abs() < 0.01;
-
-    // Determine trailing label
     String trailingLabel;
     Color trailingColor;
-    if (isGroupSettled) {
-      trailingLabel = 'Settled ✅';
-      trailingColor = AppTheme.textSecondary;
-    } else if (netBalance > 0) {
-      trailingLabel = 'You are owed';
+
+    if (exp.isSettlement) {
+      final rounded = SettlementUtils.round2(exp.amount);
+      trailingLabel = 'Settlement $currencySymbol${rounded.toStringAsFixed(0)}';
       trailingColor = AppTheme.green;
     } else {
-      trailingLabel = 'You owe';
-      trailingColor = AppTheme.red;
+      // Accumulator-based per-expense impact
+      double owe = 0;
+      double owed = 0;
+
+      exp.shares.forEach((participantId, shareVal) {
+        if (participantId == exp.payerId) return; // skip payer's own share
+        final contribution = (shareVal as num).toDouble();
+
+        if (participantId == currentUserId) {
+          owe += contribution;
+        }
+        if (exp.payerId == currentUserId) {
+          owed += contribution;
+        }
+      });
+
+      owe = SettlementUtils.round2(owe);
+      owed = SettlementUtils.round2(owed);
+
+      if (owed > 0) {
+        trailingLabel = 'You are owed $currencySymbol${owed.toStringAsFixed(0)}';
+        trailingColor = AppTheme.green;
+      } else if (owe > 0) {
+        trailingLabel = 'You owe $currencySymbol${owe.toStringAsFixed(0)}';
+        trailingColor = AppTheme.red;
+      } else {
+        trailingLabel = 'Not involved';
+        trailingColor = AppTheme.textSecondary;
+      }
     }
 
     return AnimatedContainer(
@@ -2419,11 +2182,11 @@ class _ActivityTabState extends State<_ActivityTab> {
         child: FutureBuilder<AppUser?>(
           future: FirestoreService.instance.getUser(exp.payerId),
           builder: (context, snapshot) {
-            final payerName = snapshot.data?.uid == currentUserUid ? 'You' : (snapshot.data?.name ?? 'Unknown');
+            final payerName = snapshot.data?.uid == currentUserId ? 'You' : (snapshot.data?.name ?? 'Unknown');
 
             return ListTile(
               leading: CircleAvatar(
-                backgroundColor: color,
+                backgroundColor: Colors.primaries[exp.groupId.hashCode % Colors.primaries.length],
                 child: const Icon(Icons.attach_money, color: Colors.white),
               ),
               title: Row(
@@ -2440,7 +2203,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                 ],
               ),
               subtitle: Text(
-                '$groupName • Paid by $payerName',
+                'Paid by $payerName', // Leftover groupName removed because allGroups is removed from signature
                 style: const TextStyle(color: AppTheme.textSecondary),
               ),
               trailing: Column(
@@ -2462,7 +2225,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                       stream: FirestoreService.instance.streamUserReaction(
                         groupId: exp.groupId!,
                         expenseId: exp.id,
-                        uid: currentUserUid,
+                        uid: currentUserId,
                       ),
                       builder: (context, snap) {
                         final myReaction = snap.data;
@@ -2479,7 +2242,7 @@ class _ActivityTabState extends State<_ActivityTab> {
                                   groupId: exp.groupId!,
                                   expenseId: exp.id,
                                   emoji: emoji,
-                                  uid: currentUserUid,
+                                  uid: currentUserId,
                                 );
                               },
                               child: Padding(
@@ -2505,12 +2268,17 @@ class _ActivityTabState extends State<_ActivityTab> {
                   ),
                 ],
               ),
-              onTap: () {
-                final group = allGroups.firstWhere(
-                  (g) => g.id == exp.groupId,
-                  orElse: () => Group(id: '', name: 'Unknown', code: '', ownerId: '', createdAt: DateTime(0)),
-                );
-                _showExpenseDetails(exp, groupName, group.ownerId);
+              onTap: () async {
+                final groupDoc = await FirebaseFirestore.instance.collection('groups').doc(exp.groupId).get();
+                String groupName = 'Unknown';
+                String groupOwnerId = '';
+                if (groupDoc.exists && groupDoc.data() != null) {
+                  final data = groupDoc.data()!;
+                  groupName = data['name'] as String? ?? 'Unknown';
+                  groupOwnerId = data['ownerId'] as String? ?? '';
+                }
+                if (!context.mounted) return;
+                _showExpenseDetails(exp, groupName, groupOwnerId);
               },
             );
           },
@@ -2656,26 +2424,23 @@ class _ExpenseDetailsSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // RULE 1: Settle Up — only if NOT already settled AND current user owes money
-                  if (expense.status != 'settled' &&
-                      currentUser.uid != expense.payerId &&
-                      ((expense.shares[currentUser.uid] as num?)?.toDouble() ?? 0) > 0)
-                    SizedBox(
+                  // RULE 1: STRICT PRIORITY — If settled, show badge ONLY.
+                  if (expense.isSettled)
+                    Container(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.payment),
-                        label: Text(
-                            'Settle Up ${getCurrencySymbol(currentUser.currency)}${((expense.shares[currentUser.uid] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.green.withAlpha(30),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Already Settled ✅',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppTheme.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showSettlePaymentModal(context, expense);
-                        },
                       ),
                     ),
                   // RULE 2: Edit — only if current user is the payer
@@ -2720,190 +2485,6 @@ class _ExpenseDetailsSheet extends StatelessWidget {
     );
   }
 
-  void _showSettlePaymentModal(BuildContext parentContext, Expense exp) {
-    final amount =
-        (exp.shares[currentUser.uid] as num?)?.toDouble() ?? 0;
-
-    showModalBottomSheet(
-      context: parentContext,
-      backgroundColor: AppTheme.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Settle Payment',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                ListTile(
-                  leading: const Icon(Icons.check_circle_outline,
-                      color: AppTheme.green, size: 32),
-                  title: const Text('Settle in App',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary)),
-                  subtitle: const Text(
-                      'Mark this expense as settled manually',
-                      style: TextStyle(color: AppTheme.textSecondary)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  tileColor: AppTheme.background,
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await FirestoreService.instance.updateExpenseStatus(
-                      exp.groupId!,
-                      exp.id,
-                      'settled',
-                    );
-                    if (parentContext.mounted) {
-                      ScaffoldMessenger.of(parentContext).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Settlement of ${getCurrencySymbol(currentUser.currency)}${amount.toStringAsFixed(0)} recorded!'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.account_balance_wallet,
-                      color: AppTheme.blue, size: 32),
-                  title: const Text('Pay via UPI',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary)),
-                  subtitle: const Text(
-                      'Pay using Google Pay, PhonePe, Paytm, etc.',
-                      style: TextStyle(color: AppTheme.textSecondary)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  tileColor: AppTheme.background,
-                  onTap: () async {
-                    print("🔥 Pay via UPI clicked");
-
-                    final receiverUid = exp.payerId;
-
-                    final receiverUser = await FirestoreService.instance.getUser(receiverUid);
-                    final receiverUpi = receiverUser?.upiId;
-                    final receiverName = receiverUser?.name ?? 'User';
-
-                    print("Receiver UPI: $receiverUpi");
-
-                    if (receiverUpi == null || receiverUpi.trim().isEmpty) {
-                      if (parentContext.mounted) {
-                        ScaffoldMessenger.of(parentContext).showSnackBar(
-                          SnackBar(
-                            content: Text("$receiverName hasn't added a UPI ID"),
-                          ),
-                        );
-                      }
-                      return;
-                    }
-
-                    final upiAmount = (exp.shares[currentUser.uid] as num?)?.toDouble() ?? 0;
-
-                    final uri = Uri.parse(
-                      "upi://pay?pa=${receiverUpi.trim()}&pn=${Uri.encodeComponent(receiverName)}&am=$upiAmount&cu=INR&tn=Spendy",
-                    );
-
-                    print("🚀 Launching UPI: $uri");
-
-                    try {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } catch (e) {
-                      print("❌ Launch failed: $e");
-                      if (parentContext.mounted) {
-                        ScaffoldMessenger.of(parentContext).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              "No UPI app found. Please install Google Pay or PhonePe.",
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showPaymentConfirmationDialog(BuildContext parentContext, Expense exp, String receiverUpi, String receiverName, double amount) {
-    showDialog(
-      context: parentContext,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Confirm Payment'),
-        content: const Text('Did you complete the payment?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await FirestoreService.instance.updateExpenseStatus(
-                exp.groupId!,
-                exp.id,
-                'settled',
-              );
-              if (parentContext.mounted) {
-                ScaffoldMessenger.of(parentContext).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Settlement of ${getCurrencySymbol(currentUser.currency)}${amount.toStringAsFixed(0)} recorded!'),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.green,
-                foregroundColor: Colors.white),
-            child: const Text('Yes'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await launchUPI(
-                context: parentContext,
-                upiId: receiverUpi,
-                name: receiverName,
-                amount: amount,
-              );
-              if (parentContext.mounted) {
-                _showPaymentConfirmationDialog(parentContext, exp, receiverUpi, receiverName, amount);
-              }
-            },
-            child: const Text('Open Again'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ProfileTab extends StatefulWidget {
@@ -3282,47 +2863,28 @@ class _ProfileTabState extends State<_ProfileTab> {
                   );
                 }
                 final expenses = expSnap.data ?? [];
-                double spent = 0;
-                double owe = 0;
-                double owed =
-                    0; // Renamed from 'settled' to 'owed' for consistency with ActivityTab
-
-                for (var e in expenses) {
-                  final myShare = e.shares[user.uid] ?? 0;
-
-                  // Personal consumption "spent" is what I am responsible for paying/consuming.
-                  spent += myShare;
-
-                  if (e.payerId == user.uid) {
-                    // I paid the whole bill. People owe me the remainder.
-                    if (e.status == 'owed') {
-                      owed += (e.amount - myShare);
-                    }
-                  } else {
-                    // Someone else paid. I owe them my share.
-                    if (e.status == 'owed') {
-                      owe += myShare;
-                    }
-                  }
-                }
+                print("PROFILE EXPENSE COUNT: ${expenses.length}");
+                final spent = SettlementUtils.calculateTotalSpent(expenses, user.uid);
+                final owe = SettlementUtils.getUserOwe(user.uid, expenses);
+                final owed = SettlementUtils.getUserOwed(user.uid, expenses);
 
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildStatCard(
-                      'Spent',
+                      'You Paid',
                       spent.toInt(),
                       AppTheme.blue,
                       user.currency,
                     ),
                     _buildStatCard(
-                      'Owe',
+                      'You Owe',
                       owe.toInt(),
                       AppTheme.red,
                       user.currency,
                     ),
                     _buildStatCard(
-                      'Owed',
+                      'You\'re Owed',
                       owed.toInt(),
                       AppTheme.green,
                       user.currency,

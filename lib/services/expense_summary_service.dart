@@ -1,7 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'firestore_service.dart';
 import 'local_notification_service.dart';
+import '../models/expense_model.dart';
+import '../utils/settlement_utils.dart';
 
 /// Service that computes expense summaries from Firestore and triggers
 /// the corresponding local notifications.
@@ -13,59 +14,30 @@ class ExpenseSummaryService {
 
   ExpenseSummaryService._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final LocalNotificationService _localService = LocalNotificationService();
 
   // ─────────────────────────────────────────────────────────────
   // PART 4 — Daily Expense Summary
   // ─────────────────────────────────────────────────────────────
 
-  /// Queries today's expenses for [uid], computes totals, and shows a local
-  /// summary notification. Call this from a background isolate or WorkManager
-  /// worker at 9 PM.
+  /// Queries ALL expenses for [uid], computes ledger-based owe/owed via
+  /// SettlementUtils, and shows a local summary notification.
   Future<void> computeDailySummaryAndNotify(String uid) async {
     debugPrint('📊 [ExpenseSummaryService] Computing daily summary for $uid');
     try {
+      // Fetch ALL unfiltered expenses (one-shot from the stream)
+      final List<Expense> expenses =
+          await FirestoreService.instance.streamUserExpenses(uid).first;
+
+      // Ledger-based calculation — single source of truth
+      final double owe = SettlementUtils.getUserOwe(uid, expenses);
+      final double owed = SettlementUtils.getUserOwed(uid, expenses);
+
+      // Spending today (non-settlement, payer-only)
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-
-      final snap = await _db
-          .collection('expenses')
-          .where('participants', arrayContains: uid)
-          .where(
-            'createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-          )
-          .where('createdAt', isLessThan: Timestamp.fromDate(endOfDay))
-          .get();
-
-      double spent = 0;
-      double owe = 0;
-      double owed = 0;
-
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final double amount = (data['amount'] as num?)?.toDouble() ?? 0;
-        final String payerId = data['payerId'] as String? ?? '';
-        final String status = data['status'] as String? ?? '';
-        final Map<String, dynamic> shares =
-            (data['shares'] as Map<String, dynamic>?) ?? {};
-
-        final double myShare = (shares[uid] as num?)?.toDouble() ?? 0;
-
-        spent += myShare;
-
-        if (payerId == uid) {
-          if (status == 'owed') {
-            owed += (amount - myShare);
-          }
-        } else {
-          if (status == 'owed') {
-            owe += myShare;
-          }
-        }
-      }
+      final double spent =
+          SettlementUtils.calculateTotalSpent(expenses, uid, since: startOfDay);
 
       // Get currency symbol
       final userDoc = await FirestoreService.instance.streamUser(uid).first;
@@ -91,33 +63,19 @@ class ExpenseSummaryService {
   // PART 5 — Settlement Reminder
   // ─────────────────────────────────────────────────────────────
 
-  /// Queries all unpaid expenses for [uid], and if the user owes money,
-  /// shows an instant reminder notification. Call this at 8 PM daily.
+  /// Queries ALL expenses for [uid], computes ledger-based owe via
+  /// SettlementUtils, and if the user owes money, shows a reminder.
   Future<void> computeSettlementAndNotify(String uid) async {
     debugPrint(
       '💸 [ExpenseSummaryService] Checking settlement reminder for $uid',
     );
     try {
-      final snap = await _db
-          .collection('expenses')
-          .where('participants', arrayContains: uid)
-          .where('status', isEqualTo: 'owed')
-          .get();
+      // Fetch ALL unfiltered expenses (one-shot from the stream)
+      final List<Expense> expenses =
+          await FirestoreService.instance.streamUserExpenses(uid).first;
 
-      double totalOwed = 0;
-
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final String payerId = data['payerId'] as String? ?? '';
-        final Map<String, dynamic> shares =
-            (data['shares'] as Map<String, dynamic>?) ?? {};
-
-        // Only count expenses where SOMEONE ELSE paid — meaning I owe them
-        if (payerId != uid) {
-          final double myShare = (shares[uid] as num?)?.toDouble() ?? 0;
-          totalOwed += myShare;
-        }
-      }
+      // Ledger-based calculation — single source of truth
+      final double totalOwed = SettlementUtils.getUserOwe(uid, expenses);
 
       // Get currency symbol
       final userDoc = await FirestoreService.instance.streamUser(uid).first;
