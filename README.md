@@ -11,6 +11,8 @@
   
   *Say goodbye to awkward money conversations and complicated math.*
 
+  ### 📱 [Download Spendy App (APK)](https://drive.google.com/file/d/1jlpMeYIIADIxfdLdjCm1qlfRX7wLfQvI/view?usp=sharing)
+
 </div>
 
 ---
@@ -29,13 +31,12 @@
 
 ---
 
-## 📸 Screenshots *(coming soon)*
+## 📸 Screenshots
 
 <div align="center">
-  <!-- Provide images or GIFs here later -->
-  <img src="https://via.placeholder.com/200x400.png?text=Home+Screen" width="200"/>
-  <img src="https://via.placeholder.com/200x400.png?text=Group+Details" width="200"/>
-  <img src="https://via.placeholder.com/200x400.png?text=Analytics" width="200"/>
+  <img src="assets/screenshots/1.jpeg" width="200"/>
+  <img src="assets/screenshots/3.jpeg" width="200"/>
+  <img src="assets/screenshots/6.jpeg" width="200"/>
 </div>
 
 ---
