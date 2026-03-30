@@ -35,7 +35,7 @@
 
 <div align="center">
   <img src="assets/screenshots/1.jpeg" width="200"/>
-  <img src="assets/screenshots/3.jpeg" width="200"/>
+  <img src="assets/screenshots/2.jpeg" width="200"/>
   <img src="assets/screenshots/6.jpeg" width="200"/>
 </div>
 
