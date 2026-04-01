@@ -977,11 +977,17 @@ class _HomeTabState extends State<_HomeTab>
                     if (displayExpenses.isNotEmpty)
                       _buildChartCard(displayExpenses)
                     else
-                      const Card(
+                      Card(
                         color: AppTheme.card,
                         child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: Text("No expenses yet")),
+                          padding: const EdgeInsets.all(32),
+                          child: Center(
+                            child: Text(
+                              expenses.isEmpty
+                                  ? 'No expenses yet'
+                                  : 'No expenses this month',
+                            ),
+                          ),
                         ),
                       ),
                     const SizedBox(height: 32),
@@ -994,7 +1000,7 @@ class _HomeTabState extends State<_HomeTab>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (displayExpenses.isEmpty)
+                    if (expenses.isEmpty)
                       const Center(
                         child: Padding(
                           padding: EdgeInsets.only(top: 20),
@@ -1007,9 +1013,9 @@ class _HomeTabState extends State<_HomeTab>
                           return ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: displayExpenses.length,
+                            itemCount: expenses.length,
                             itemBuilder: (context, i) {
-                              final exp = displayExpenses[i];
+                              final exp = expenses[i];
                               final myShare = (exp.shares[user.uid] as num?)?.toDouble() ?? 0.0;
                               final currentUserId = user.uid;
 
