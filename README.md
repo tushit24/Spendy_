@@ -11,7 +11,7 @@
   
   *Say goodbye to awkward money conversations and complicated math.*
 
-  ### 📱 [Download Spendy App (APK)](https://drive.google.com/file/d/1jlpMeYIIADIxfdLdjCm1qlfRX7wLfQvI/view?usp=sharing)
+  ### 📱 [Download Spendy App (APK)](https://drive.google.com/drive/folders/1E8GOk3zyCwhcM57IgKx3zOEkpdQvFagL?usp=drive_link)
 
 </div>
 
