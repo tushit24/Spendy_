@@ -117,6 +117,5 @@ This project is licensed under the MIT License.
 
 ---
 <div align="center">
-  <i>Built with ❤️ using Flutter and Firebase</i>
   <i>By Tushit Tiwari</i>  
 </div>
